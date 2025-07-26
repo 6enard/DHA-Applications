@@ -61,6 +61,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const login = async (email: string, password: string) => {
+    // For demo purposes, handle demo accounts without Firebase
+    if (email === 'hr@dha.go.ke' && password === 'hr123456') {
+      const mockUser = {
+        uid: 'demo-hr-user',
+        email: 'hr@dha.go.ke',
+        displayName: 'HR Admin'
+      } as User;
+      
+      const mockProfile: UserProfile = {
+        uid: 'demo-hr-user',
+        email: 'hr@dha.go.ke',
+        displayName: 'HR Admin',
+        role: 'hr',
+        createdAt: new Date()
+      };
+      
+      setCurrentUser(mockUser);
+      setUserProfile(mockProfile);
+      return;
+    }
+    
+    if (email === 'applicant@email.com' && password === 'applicant123') {
+      const mockUser = {
+        uid: 'demo-applicant-user',
+        email: 'applicant@email.com',
+        displayName: 'Demo Applicant'
+      } as User;
+      
+      const mockProfile: UserProfile = {
+        uid: 'demo-applicant-user',
+        email: 'applicant@email.com',
+        displayName: 'Demo Applicant',
+        role: 'applicant',
+        createdAt: new Date()
+      };
+      
+      setCurrentUser(mockUser);
+      setUserProfile(mockProfile);
+      return;
+    }
+    
+    // For real Firebase authentication
     await signInWithEmailAndPassword(auth, email, password);
   };
 

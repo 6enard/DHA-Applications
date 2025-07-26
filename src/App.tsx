@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Login from './components/Login';
 import Register from './components/Register';
 import AdminDashboard from './components/AdminDashboard';
+import ApplicantDashboard from './components/ApplicantDashboard';
 
 const AuthModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
   const [isLogin, setIsLogin] = useState(true);
@@ -179,6 +180,11 @@ const AppContent: React.FC = () => {
   // Show admin dashboard for HR users
   if (currentUser && userProfile?.role === 'hr') {
     return <AdminDashboard />;
+  }
+
+  // Show applicant dashboard for applicant users
+  if (currentUser && userProfile?.role === 'applicant') {
+    return <ApplicantDashboard />;
   }
 
   // Show landing page for non-authenticated users or regular applicants

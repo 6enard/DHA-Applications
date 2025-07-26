@@ -33,7 +33,7 @@ const Login: React.FC<LoginProps> = ({ onToggleMode, onClose }) => {
 
   // Demo credentials for testing
   const demoCredentials = [
-    { email: 'hr@dha.go.ke', password: 'hr123456', role: 'HR Admin' },
+    { email: 'hr@dha.go.ke', password: 'hr123456', role: 'HR Admin (role: hr)' },
     { email: 'applicant@email.com', password: 'applicant123', role: 'Applicant' }
   ];
 
