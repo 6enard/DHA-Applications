@@ -9,7 +9,6 @@ import {
 } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
-import { checkFirestoreConnection } from '../firebase/config';
 
 interface UserProfile {
   uid: string;
@@ -44,42 +43,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   const register = async (email: string, password: string, displayName: string, role: string = 'applicant') => {
-    try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-      
-      await updateProfile(user, { displayName });
-      
-      const profile: UserProfile = {
-        uid: user.uid,
-        email: user.email!,
-        displayName,
-        role: role as 'applicant' | 'hr' | 'admin',
-        createdAt: new Date()
-      };
-      
-      // Check connection before writing to Firestore
-      const isConnected = await checkFirestoreConnection();
-      if (isConnected) {
-        await setDoc(doc(db, 'users', user.uid), profile);
-      } else {
-        console.warn('Firestore offline - user profile will be created when connection is restored');
-      }
-      
-      setUserProfile(profile);
-    } catch (error) {
-      console.error('Registration error:', error);
-      throw error;
-    }
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const user = userCredential.user;
+    
+    await updateProfile(user, { displayName });
+    
+    const profile: UserProfile = {
+      uid: user.uid,
+      email: user.email!,
+      displayName,
+      role: role as 'applicant' | 'hr' | 'admin',
+      createdAt: new Date()
+    };
+    
+    await setDoc(doc(db, 'users', user.uid), profile);
+    setUserProfile(profile);
   };
 
   const login = async (email: string, password: string) => {
-    try {
-      await signInWithEmailAndPassword(auth, email, password);
-    } catch (error) {
-      console.error('Login error:', error);
-      throw error;
-    }
+    await signInWithEmailAndPassword(auth, email, password);
   };
 
   const logout = async () => {
@@ -105,19 +87,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               role: 'applicant',
               createdAt: new Date()
             };
+            await setDoc(doc(db, 'users', user.uid), defaultProfile);
             setUserProfile(defaultProfile);
           }
         } catch (error) {
           console.error('Error fetching user profile:', error);
-          // Create a fallback profile when Firestore is unavailable
-          const fallbackProfile: UserProfile = {
-            uid: user.uid,
-            email: user.email!,
-            displayName: user.displayName || 'User',
-            role: 'applicant',
-            createdAt: new Date()
-          };
-          setUserProfile(fallbackProfile);
         }
       } else {
         setUserProfile(null);
@@ -140,7 +114,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 };
