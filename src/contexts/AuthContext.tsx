@@ -93,26 +93,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (user) {
         try {
-          // Check if Firestore is connected
-          const isConnected = await checkFirestoreConnection();
-          if (!isConnected) {
-            console.warn('Firestore is offline, using cached data if available');
-          }
-          
           const userDoc = await getDoc(doc(db, 'users', user.uid));
           if (userDoc.exists()) {
             setUserProfile(userDoc.data() as UserProfile);
+          } else {
+            // Create a default profile if document doesn't exist
+            const defaultProfile: UserProfile = {
+              uid: user.uid,
+              email: user.email!,
+              displayName: user.displayName || 'User',
+              role: 'applicant',
+              createdAt: new Date()
+            };
+            setUserProfile(defaultProfile);
           }
         } catch (error) {
           console.error('Error fetching user profile:', error);
-          // Handle offline scenario gracefully
-          setUserProfile({
+          // Create a fallback profile when Firestore is unavailable
+          const fallbackProfile: UserProfile = {
             uid: user.uid,
             email: user.email!,
             displayName: user.displayName || 'User',
             role: 'applicant',
             createdAt: new Date()
-          });
+          };
+          setUserProfile(fallbackProfile);
         }
       } else {
         setUserProfile(null);
