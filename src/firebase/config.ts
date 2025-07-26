@@ -41,7 +41,7 @@ if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
   try {
     // Uncomment these lines if you want to use Firebase emulators in development
     // connectAuthEmulator(auth, "http://localhost:9099", { disableWarnings: true });
-    // connectFirestoreEmulator(db, 'localhost', 8080);
+    connectFirestoreEmulator(db, 'localhost', 8080);
     // connectStorageEmulator(storage, "localhost", 9199);
   } catch (error) {
     console.log('Emulators already connected or not available');
