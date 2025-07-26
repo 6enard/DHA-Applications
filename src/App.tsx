@@ -256,7 +256,7 @@ const AppContent: React.FC = () => {
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [selectedJob, setSelectedJob] = useState<any>(null);
   const [jobs, setJobs] = useState<Job[]>(mockJobs);
-  const [applications, setApplications] useState<Application[]>(mockApplications);
+  const [applications, setApplications] = useState<Application[]>(mockApplications);
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState({
     department: '',
