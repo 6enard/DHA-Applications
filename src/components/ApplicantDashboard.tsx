@@ -162,13 +162,25 @@ const ApplicantDashboard: React.FC = () => {
       department: selectedJob.department,
       status: 'submitted',
       submittedAt: new Date(),
-      coverLetter: applicationForm.coverLetter
+      coverLetter: applicationForm.coverLetter,
+      applicantId: currentUser?.uid || '', // Link to authenticated user
+      applicantName: userProfile?.displayName || '',
+      applicantEmail: userProfile?.email || ''
     };
 
     setApplications(prev => [...prev, newApplication]);
     setShowApplicationModal(false);
     setApplicationForm({ coverLetter: '', resumeFile: null });
     setSelectedJob(null);
+    
+    // In a real implementation, save to Firebase:
+    // const applicationsRef = collection(db, 'applications');
+    // await addDoc(applicationsRef, {
+    //   ...newApplication,
+    //   createdBy: currentUser?.uid,
+    //   submittedAt: new Date(),
+    //   lastUpdated: new Date()
+    // });
   };
 
   const getStatusColor = (status: Application['status']) => {

@@ -25,10 +25,12 @@ import {
   Shield
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { collection, getDocs, doc, updateDoc, deleteDoc, query, where, orderBy } from 'firebase/firestore';
+import { db } from '../firebase/config';
 
 interface Application {
   id: string;
-  applicantId: string;
+  applicantId: string; // This will be the Firebase user UID
   applicantName: string;
   applicantEmail: string;
   applicantPhone: string;
@@ -45,6 +47,7 @@ interface Application {
   notes: string;
   reviewedBy?: string;
   interviewDate?: Date;
+  createdBy: string; // Firebase user UID who created the application
 }
 
 interface JobListing {
@@ -70,120 +73,164 @@ const AdminDashboard: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [stageFilter, setStageFilter] = useState<string>('all');
   const [departmentFilter, setDepartmentFilter] = useState<string>('all');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string>('');
 
-  // Mock data for demonstration
+  // Load applications from Firebase
   useEffect(() => {
-    const mockApplications: Application[] = [
-      {
-        id: '1',
-        applicantId: 'app1',
-        applicantName: 'John Doe',
-        applicantEmail: 'john.doe@email.com',
-        applicantPhone: '+254 712 345 678',
-        jobId: 'job1',
-        jobTitle: 'Health Data Analyst',
-        department: 'Data & Analytics',
-        status: 'under-review',
-        stage: 'technical-review',
-        submittedAt: new Date('2024-01-15'),
-        lastUpdated: new Date('2024-01-18'),
-        coverLetter: 'I am excited to apply for the Health Data Analyst position. With my background in statistics and healthcare data analysis...',
-        score: 85,
-        notes: 'Strong technical background, good communication skills. Recommended for interview.',
-        reviewedBy: 'Sarah Johnson'
-      },
-      {
-        id: '2',
-        applicantId: 'app2',
-        applicantName: 'Jane Smith',
-        applicantEmail: 'jane.smith@email.com',
-        applicantPhone: '+254 723 456 789',
-        jobId: 'job2',
-        jobTitle: 'Digital Health Specialist',
-        department: 'Digital Health',
-        status: 'shortlisted',
-        stage: 'hr-review',
-        submittedAt: new Date('2024-01-12'),
-        lastUpdated: new Date('2024-01-20'),
-        coverLetter: 'As a passionate advocate for digital health solutions, I believe I would be an excellent fit...',
-        score: 92,
-        notes: 'Excellent candidate with relevant experience. Schedule interview ASAP.',
-        reviewedBy: 'Michael Brown',
-        interviewDate: new Date('2024-01-25')
-      },
-      {
-        id: '3',
-        applicantId: 'app3',
-        applicantName: 'David Wilson',
-        applicantEmail: 'david.wilson@email.com',
-        applicantPhone: '+254 734 567 890',
-        jobId: 'job1',
-        jobTitle: 'Health Data Analyst',
-        department: 'Data & Analytics',
-        status: 'submitted',
-        stage: 'initial-review',
-        submittedAt: new Date('2024-01-20'),
-        lastUpdated: new Date('2024-01-20'),
-        coverLetter: 'I am writing to express my interest in the Health Data Analyst position...',
-        notes: 'Pending initial review.',
-        reviewedBy: undefined
-      },
-      {
-        id: '4',
-        applicantId: 'app4',
-        applicantName: 'Mary Johnson',
-        applicantEmail: 'mary.johnson@email.com',
-        applicantPhone: '+254 745 678 901',
-        jobId: 'job3',
-        jobTitle: 'Health Systems Coordinator',
-        department: 'Health Systems',
-        status: 'rejected',
-        stage: 'completed',
-        submittedAt: new Date('2024-01-10'),
-        lastUpdated: new Date('2024-01-16'),
-        coverLetter: 'I am interested in the Health Systems Coordinator role...',
-        score: 65,
-        notes: 'Does not meet minimum requirements for the position.',
-        reviewedBy: 'Lisa Davis'
-      }
-    ];
-
-    const mockJobs: JobListing[] = [
-      {
-        id: 'job1',
-        title: 'Health Data Analyst',
-        department: 'Data & Analytics',
-        location: 'Nairobi',
-        type: 'full-time',
-        status: 'active',
-        deadline: new Date('2024-02-15'),
-        applicationsCount: 12
-      },
-      {
-        id: 'job2',
-        title: 'Digital Health Specialist',
-        department: 'Digital Health',
-        location: 'Kisumu',
-        type: 'full-time',
-        status: 'active',
-        deadline: new Date('2024-02-20'),
-        applicationsCount: 8
-      },
-      {
-        id: 'job3',
-        title: 'Health Systems Coordinator',
-        department: 'Health Systems',
-        location: 'Mombasa',
-        type: 'full-time',
-        status: 'closed',
-        deadline: new Date('2024-02-10'),
-        applicationsCount: 15
-      }
-    ];
-
-    setApplications(mockApplications);
-    setJobs(mockJobs);
+    loadApplications();
+    loadJobs();
   }, []);
+
+  const loadApplications = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      
+      // For demo purposes, create mock data that simulates Firebase structure
+      const mockApplications: Application[] = [
+        {
+          id: '1',
+          applicantId: 'demo-applicant-user', // Links to the demo applicant user
+          applicantName: 'Demo Applicant',
+          applicantEmail: 'applicant@email.com',
+          applicantPhone: '+254 712 345 678',
+          jobId: 'job1',
+          jobTitle: 'Health Data Analyst',
+          department: 'Data & Analytics',
+          status: 'under-review',
+          stage: 'technical-review',
+          submittedAt: new Date('2024-01-15'),
+          lastUpdated: new Date('2024-01-18'),
+          coverLetter: 'I am excited to apply for the Health Data Analyst position. With my background in statistics and healthcare data analysis, I believe I can contribute significantly to Kenya\'s digital health transformation.',
+          score: 85,
+          notes: 'Strong technical background, good communication skills. Recommended for interview.',
+          reviewedBy: 'Sarah Johnson',
+          createdBy: 'demo-applicant-user'
+        },
+        {
+          id: '2',
+          applicantId: 'demo-applicant-user',
+          applicantName: 'Demo Applicant',
+          applicantEmail: 'applicant@email.com',
+          applicantPhone: '+254 723 456 789',
+          jobId: 'job2',
+          jobTitle: 'Digital Health Specialist',
+          department: 'Digital Health',
+          status: 'shortlisted',
+          stage: 'hr-review',
+          submittedAt: new Date('2024-01-12'),
+          lastUpdated: new Date('2024-01-20'),
+          coverLetter: 'As a passionate advocate for digital health solutions, I believe I would be an excellent fit for this role. My experience in implementing health technology systems aligns perfectly with DHA\'s mission.',
+          score: 92,
+          notes: 'Excellent candidate with relevant experience. Schedule interview ASAP.',
+          reviewedBy: 'Michael Brown',
+          interviewDate: new Date('2024-01-25'),
+          createdBy: 'demo-applicant-user'
+        },
+        {
+          id: '3',
+          applicantId: 'user-123', // Different user
+          applicantName: 'John Doe',
+          applicantEmail: 'john.doe@email.com',
+          applicantPhone: '+254 734 567 890',
+          jobId: 'job1',
+          jobTitle: 'Health Data Analyst',
+          department: 'Data & Analytics',
+          status: 'submitted',
+          stage: 'initial-review',
+          submittedAt: new Date('2024-01-20'),
+          lastUpdated: new Date('2024-01-20'),
+          coverLetter: 'I am writing to express my interest in the Health Data Analyst position. My academic background in statistics and practical experience with healthcare datasets make me a strong candidate.',
+          notes: 'Pending initial review.',
+          createdBy: 'user-123'
+        },
+        {
+          id: '4',
+          applicantId: 'user-456', // Another different user
+          applicantName: 'Mary Johnson',
+          applicantEmail: 'mary.johnson@email.com',
+          applicantPhone: '+254 745 678 901',
+          jobId: 'job3',
+          jobTitle: 'Health Systems Coordinator',
+          department: 'Health Systems',
+          status: 'rejected',
+          stage: 'completed',
+          submittedAt: new Date('2024-01-10'),
+          lastUpdated: new Date('2024-01-16'),
+          coverLetter: 'I am interested in the Health Systems Coordinator role and believe my experience in project management would be valuable.',
+          score: 65,
+          notes: 'Does not meet minimum requirements for the position.',
+          reviewedBy: 'Lisa Davis',
+          createdBy: 'user-456'
+        }
+      ];
+
+      setApplications(mockApplications);
+      
+      // In a real implementation, you would use:
+      // const applicationsRef = collection(db, 'applications');
+      // const q = query(applicationsRef, orderBy('submittedAt', 'desc'));
+      // const querySnapshot = await getDocs(q);
+      // const applicationsData = querySnapshot.docs.map(doc => ({
+      //   id: doc.id,
+      //   ...doc.data(),
+      //   submittedAt: doc.data().submittedAt?.toDate(),
+      //   lastUpdated: doc.data().lastUpdated?.toDate(),
+      //   interviewDate: doc.data().interviewDate?.toDate()
+      // })) as Application[];
+      // setApplications(applicationsData);
+      
+    } catch (error) {
+      console.error('Error loading applications:', error);
+      setError('Failed to load applications. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadJobs = async () => {
+    try {
+      // Mock job data - in real implementation, load from Firebase
+      const mockJobs: JobListing[] = [
+        {
+          id: 'job1',
+          title: 'Health Data Analyst',
+          department: 'Data & Analytics',
+          location: 'Nairobi',
+          type: 'full-time',
+          status: 'active',
+          deadline: new Date('2024-02-15'),
+          applicationsCount: 12
+        },
+        {
+          id: 'job2',
+          title: 'Digital Health Specialist',
+          department: 'Digital Health',
+          location: 'Kisumu',
+          type: 'full-time',
+          status: 'active',
+          deadline: new Date('2024-02-20'),
+          applicationsCount: 8
+        },
+        {
+          id: 'job3',
+          title: 'Health Systems Coordinator',
+          department: 'Health Systems',
+          location: 'Mombasa',
+          type: 'full-time',
+          status: 'closed',
+          deadline: new Date('2024-02-10'),
+          applicationsCount: 15
+        }
+      ];
+
+      setJobs(mockJobs);
+      
+    } catch (error) {
+      console.error('Error loading jobs:', error);
+    }
+  };
 
   const getStatusColor = (status: Application['status']) => {
     switch (status) {
@@ -208,42 +255,115 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  const handleStatusChange = (applicationId: string, newStatus: Application['status']) => {
-    setApplications(prev => prev.map(app => 
-      app.id === applicationId 
-        ? { ...app, status: newStatus, lastUpdated: new Date() }
-        : app
-    ));
-  };
+  const handleStatusChange = async (applicationId: string, newStatus: Application['status']) => {
+    try {
+      // Update local state immediately for better UX
+      setApplications(prev => prev.map(app => 
+        app.id === applicationId 
+          ? { ...app, status: newStatus, lastUpdated: new Date(), reviewedBy: userProfile?.displayName }
+          : app
+      ));
 
-  const handleStageChange = (applicationId: string, newStage: Application['stage']) => {
-    setApplications(prev => prev.map(app => 
-      app.id === applicationId 
-        ? { ...app, stage: newStage, lastUpdated: new Date() }
-        : app
-    ));
-  };
-
-  const handleDeleteApplication = (applicationId: string) => {
-    if (confirm('Are you sure you want to delete this application?')) {
-      setApplications(prev => prev.filter(app => app.id !== applicationId));
+      // In a real implementation, update Firebase:
+      // const applicationRef = doc(db, 'applications', applicationId);
+      // await updateDoc(applicationRef, {
+      //   status: newStatus,
+      //   lastUpdated: new Date(),
+      //   reviewedBy: userProfile?.displayName || currentUser?.uid
+      // });
+      
+    } catch (error) {
+      console.error('Error updating application status:', error);
+      setError('Failed to update application status. Please try again.');
+      // Revert local state on error
+      loadApplications();
     }
   };
 
-  const handleUpdateNotes = (applicationId: string, notes: string) => {
-    setApplications(prev => prev.map(app => 
-      app.id === applicationId 
-        ? { ...app, notes, lastUpdated: new Date(), reviewedBy: userProfile?.displayName }
-        : app
-    ));
+  const handleStageChange = async (applicationId: string, newStage: Application['stage']) => {
+    try {
+      setApplications(prev => prev.map(app => 
+        app.id === applicationId 
+          ? { ...app, stage: newStage, lastUpdated: new Date(), reviewedBy: userProfile?.displayName }
+          : app
+      ));
+
+      // In a real implementation:
+      // const applicationRef = doc(db, 'applications', applicationId);
+      // await updateDoc(applicationRef, {
+      //   stage: newStage,
+      //   lastUpdated: new Date(),
+      //   reviewedBy: userProfile?.displayName || currentUser?.uid
+      // });
+      
+    } catch (error) {
+      console.error('Error updating application stage:', error);
+      setError('Failed to update application stage. Please try again.');
+      loadApplications();
+    }
   };
 
-  const handleScoreUpdate = (applicationId: string, score: number) => {
-    setApplications(prev => prev.map(app => 
-      app.id === applicationId 
-        ? { ...app, score, lastUpdated: new Date(), reviewedBy: userProfile?.displayName }
-        : app
-    ));
+  const handleDeleteApplication = async (applicationId: string) => {
+    if (!confirm('Are you sure you want to delete this application? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      // Update local state immediately
+      setApplications(prev => prev.filter(app => app.id !== applicationId));
+
+      // In a real implementation:
+      // await deleteDoc(doc(db, 'applications', applicationId));
+      
+    } catch (error) {
+      console.error('Error deleting application:', error);
+      setError('Failed to delete application. Please try again.');
+      loadApplications();
+    }
+  };
+
+  const handleUpdateNotes = async (applicationId: string, notes: string) => {
+    try {
+      setApplications(prev => prev.map(app => 
+        app.id === applicationId 
+          ? { ...app, notes, lastUpdated: new Date(), reviewedBy: userProfile?.displayName }
+          : app
+      ));
+
+      // In a real implementation:
+      // const applicationRef = doc(db, 'applications', applicationId);
+      // await updateDoc(applicationRef, {
+      //   notes,
+      //   lastUpdated: new Date(),
+      //   reviewedBy: userProfile?.displayName || currentUser?.uid
+      // });
+      
+    } catch (error) {
+      console.error('Error updating notes:', error);
+      setError('Failed to update notes. Please try again.');
+    }
+  };
+
+  const handleScoreUpdate = async (applicationId: string, score: number) => {
+    try {
+      setApplications(prev => prev.map(app => 
+        app.id === applicationId 
+          ? { ...app, score, lastUpdated: new Date(), reviewedBy: userProfile?.displayName }
+          : app
+      ));
+
+      // In a real implementation:
+      // const applicationRef = doc(db, 'applications', applicationId);
+      // await updateDoc(applicationRef, {
+      //   score,
+      //   lastUpdated: new Date(),
+      //   reviewedBy: userProfile?.displayName || currentUser?.uid
+      // });
+      
+    } catch (error) {
+      console.error('Error updating score:', error);
+      setError('Failed to update score. Please try again.');
+    }
   };
 
   const filteredApplications = applications.filter(app => {
@@ -268,6 +388,18 @@ const AdminDashboard: React.FC = () => {
 
   const stats = getOverviewStats();
 
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-green-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading applications...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -283,6 +415,9 @@ const AdminDashboard: React.FC = () => {
             </div>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-600">Welcome, {userProfile?.displayName}</span>
+              <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                {userProfile?.role === 'admin' ? 'Administrator' : 'HR Staff'}
+              </span>
               <button
                 onClick={logout}
                 className="flex items-center px-4 py-2 text-gray-600 hover:text-gray-900 transition-colors"
@@ -296,6 +431,16 @@ const AdminDashboard: React.FC = () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Error Message */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+            <div className="flex items-center">
+              <AlertCircle className="w-5 h-5 mr-2" />
+              {error}
+            </div>
+          </div>
+        )}
+
         {/* Navigation Tabs */}
         <div className="border-b border-gray-200 mb-8">
           <nav className="-mb-px flex space-x-8">
@@ -427,11 +572,18 @@ const AdminDashboard: React.FC = () => {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center">
-                              <User className="w-5 h-5 text-gray-600" />
+                              {application.applicantId === 'demo-applicant-user' ? (
+                                <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                                  <User className="w-5 h-5 text-green-600" />
+                                </div>
+                              ) : (
+                                <User className="w-5 h-5 text-gray-600" />
+                              )}
                             </div>
                             <div className="ml-4">
                               <div className="text-sm font-medium text-gray-900">{application.applicantName}</div>
                               <div className="text-sm text-gray-500">{application.applicantEmail}</div>
+                              <div className="text-xs text-gray-400">ID: {application.applicantId}</div>
                             </div>
                           </div>
                         </td>
@@ -558,11 +710,18 @@ const AdminDashboard: React.FC = () => {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center">
-                              <User className="w-5 h-5 text-gray-600" />
+                              {application.applicantId === 'demo-applicant-user' ? (
+                                <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                                  <User className="w-5 h-5 text-green-600" />
+                                </div>
+                              ) : (
+                                <User className="w-5 h-5 text-gray-600" />
+                              )}
                             </div>
                             <div className="ml-4">
                               <div className="text-sm font-medium text-gray-900">{application.applicantName}</div>
                               <div className="text-sm text-gray-500">{application.applicantEmail}</div>
+                              <div className="text-xs text-gray-400">User ID: {application.applicantId}</div>
                             </div>
                           </div>
                         </td>
@@ -785,6 +944,14 @@ const AdminDashboard: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <div>
                   <h3 className="font-semibold text-gray-900 mb-3">Applicant Information</h3>
+                  <div className="mb-3 p-3 bg-gray-50 rounded-lg">
+                    <div className="text-sm text-gray-600">Account Details</div>
+                    <div className="text-xs text-gray-500">User ID: {selectedApplication.applicantId}</div>
+                    <div className="text-xs text-gray-500">Created by: {selectedApplication.createdBy}</div>
+                    {selectedApplication.applicantId === 'demo-applicant-user' && (
+                      <div className="text-xs text-green-600 font-medium">✓ Verified Demo Account</div>
+                    )}
+                  </div>
                   <div className="space-y-2">
                     <div className="flex items-center">
                       <User className="w-4 h-4 text-gray-400 mr-3" />
@@ -820,6 +987,16 @@ const AdminDashboard: React.FC = () => {
                       <span className="text-sm text-gray-500">Score:</span>
                       <span className="ml-2 text-gray-700">{selectedApplication.score || 'Not scored'}/100</span>
                     </div>
+                    <div>
+                      <span className="text-sm text-gray-500">Last Updated:</span>
+                      <span className="ml-2 text-gray-700">{selectedApplication.lastUpdated.toLocaleDateString()}</span>
+                    </div>
+                    {selectedApplication.reviewedBy && (
+                      <div>
+                        <span className="text-sm text-gray-500">Reviewed by:</span>
+                        <span className="ml-2 text-gray-700">{selectedApplication.reviewedBy}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
