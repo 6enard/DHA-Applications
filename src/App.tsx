@@ -178,7 +178,7 @@ const AppContent: React.FC = () => {
   }
 
   // Show admin dashboard for HR users
-  if (currentUser && userProfile?.role === 'hr') {
+  if (currentUser && (userProfile?.role === 'admin' || userProfile?.role === 'hr')) {
     return <AdminDashboard />;
   }
 

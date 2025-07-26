@@ -64,16 +64,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // For demo purposes, handle demo accounts without Firebase
     if (email === 'hr@dha.go.ke' && password === 'hr123456') {
       const mockUser = {
-        uid: 'demo-hr-user',
+        uid: 'demo-admin-user',
         email: 'hr@dha.go.ke',
-        displayName: 'HR Admin'
+        displayName: 'Admin User'
       } as User;
       
       const mockProfile: UserProfile = {
-        uid: 'demo-hr-user',
+        uid: 'demo-admin-user',
         email: 'hr@dha.go.ke',
-        displayName: 'HR Admin',
-        role: 'hr',
+        displayName: 'Admin User',
+        role: 'admin',
         createdAt: new Date()
       };
       
