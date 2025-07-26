@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Briefcase, Users, FileText, Settings, Menu, X, Globe, Bell, Search, Filter, Plus, Eye, Edit, Trash2, Download, Upload, Calendar, MapPin, Clock, CheckCircle, AlertCircle, XCircle } from 'lucide-react';
+import { Briefcase, Users, FileText, Settings, Menu, X, Globe, Bell, Search, Filter, Plus, Eye, Edit, Trash2, Download, Upload, Calendar, MapPin, Clock, CheckCircle, AlertCircle, XCircle, Heart, Building, LogOut, User, ChevronRight } from 'lucide-react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import AdminDashboard from './components/AdminDashboard';
 import Login from './components/Login';
