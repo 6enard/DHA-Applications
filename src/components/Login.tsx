@@ -25,17 +25,22 @@ const Login: React.FC<LoginProps> = ({ onToggleMode, onClose }) => {
       await login(email, password);
       onClose();
     } catch (error: any) {
-      setError('Failed to log in. Please check your credentials.');
+      console.error('Login error:', error);
+      if (error.code === 'auth/user-not-found') {
+        setError('No account found with this email address.');
+      } else if (error.code === 'auth/wrong-password') {
+        setError('Incorrect password.');
+      } else if (error.code === 'auth/invalid-email') {
+        setError('Invalid email address.');
+      } else if (error.code === 'auth/too-many-requests') {
+        setError('Too many failed attempts. Please try again later.');
+      } else {
+        setError('Failed to log in. Please check your credentials.');
+      }
     } finally {
       setLoading(false);
     }
   };
-
-  // Demo credentials for testing
-  const demoCredentials = [
-    { email: 'hr@dha.go.ke', password: 'hr123456', role: 'Admin (role: admin)' },
-    { email: 'applicant@email.com', password: 'applicant123', role: 'Applicant' }
-  ];
 
   return (
     <div className="w-full max-w-md mx-auto">
@@ -45,18 +50,6 @@ const Login: React.FC<LoginProps> = ({ onToggleMode, onClose }) => {
         </div>
         <h2 className="text-3xl font-bold text-gray-900">Welcome Back</h2>
         <p className="text-gray-600 mt-2">Sign in to your DHA account</p>
-      </div>
-
-      {/* Demo Credentials */}
-      <div className="mb-6 p-4 bg-blue-50 rounded-lg">
-        <h3 className="font-semibold text-blue-900 mb-2">Demo Credentials:</h3>
-        {demoCredentials.map((cred, index) => (
-          <div key={index} className="mb-2 text-sm">
-            <p className="font-medium text-blue-800">{cred.role}:</p>
-            <p className="text-blue-700">Email: {cred.email}</p>
-            <p className="text-blue-700">Password: {cred.password}</p>
-          </div>
-        ))}
       </div>
 
       {error && (

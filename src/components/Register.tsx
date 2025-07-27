@@ -42,7 +42,16 @@ const Register: React.FC<RegisterProps> = ({ onToggleMode, onClose }) => {
       await register(formData.email, formData.password, formData.fullName, formData.role as 'applicant' | 'hr' | 'admin');
       onClose();
     } catch (error: any) {
-      setError('Failed to create account. Please try again.');
+      console.error('Registration error:', error);
+      if (error.code === 'auth/email-already-in-use') {
+        setError('An account with this email already exists.');
+      } else if (error.code === 'auth/invalid-email') {
+        setError('Invalid email address.');
+      } else if (error.code === 'auth/weak-password') {
+        setError('Password is too weak. Please choose a stronger password.');
+      } else {
+        setError('Failed to create account. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -54,6 +63,8 @@ const Register: React.FC<RegisterProps> = ({ onToggleMode, onClose }) => {
       [e.target.name]: e.target.value
     });
   };
+
+  const isAdminEmail = formData.email === '6enard@gmail.com';
 
   return (
     <div className="w-full max-w-md mx-auto">
@@ -108,22 +119,11 @@ const Register: React.FC<RegisterProps> = ({ onToggleMode, onClose }) => {
               onChange={handleInputChange}
             />
           </div>
-        </div>
-
-        <div>
-          <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-2">
-            Account Type
-          </label>
-          <select
-            id="role"
-            name="role"
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-            value={formData.role}
-            onChange={handleInputChange}
-          >
-            <option value="applicant">Job Applicant</option>
-            <option value="hr">HR Staff</option>
-          </select>
+          {isAdminEmail && (
+            <p className="text-sm text-green-600 mt-1">
+              ✓ Admin account detected
+            </p>
+          )}
         </div>
 
         <div>

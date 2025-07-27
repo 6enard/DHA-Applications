@@ -84,9 +84,7 @@ const ApplicantDashboard: React.FC = () => {
     try {
       setLoading(true);
       
-      if (userProfile?.uid === 'demo-applicant-user') {
-        loadDemoData();
-      } else if (currentUser) {
+      if (currentUser) {
         await Promise.all([loadApplications(), loadJobs()]);
       }
     } catch (error) {
@@ -98,64 +96,9 @@ const ApplicantDashboard: React.FC = () => {
   };
 
   const loadDemoData = () => {
-    // Demo applications for the demo user
-    const demoApplications: Application[] = [
-      {
-        id: 'demo-app-1',
-        applicantName: 'John Doe',
-        applicantEmail: 'applicant@email.com',
-        applicantPhone: '+254 700 123 456',
-        jobId: 'job-1',
-        jobTitle: 'Health Data Analyst',
-        department: 'Data & Analytics',
-        status: 'under-review',
-        stage: 'initial-review',
-        submittedAt: new Date('2024-01-15'),
-        lastUpdated: new Date('2024-01-16'),
-        coverLetter: 'I am excited to apply for the Health Data Analyst position at the Digital Health Agency. With my background in statistics and healthcare data analysis, I believe I would be a valuable addition to your team.',
-        notes: 'Application under review by HR team.',
-        createdBy: 'demo-applicant-user'
-      },
-      {
-        id: 'demo-app-2',
-        applicantName: 'John Doe',
-        applicantEmail: 'applicant@email.com',
-        applicantPhone: '+254 700 123 456',
-        jobId: 'job-2',
-        jobTitle: 'Software Developer',
-        department: 'Information Technology',
-        status: 'shortlisted',
-        stage: 'technical-review',
-        submittedAt: new Date('2024-01-10'),
-        lastUpdated: new Date('2024-01-20'),
-        coverLetter: 'I have 5 years of experience in full-stack development and am passionate about using technology to improve healthcare outcomes.',
-        notes: 'Shortlisted for technical interview.',
-        createdBy: 'demo-applicant-user'
-      }
-    ];
-
-    // Demo available jobs
-    const demoJobs: JobListing[] = [
-      {
-        id: 'job-3',
-        title: 'Digital Health Specialist',
-        department: 'Digital Health',
-        location: 'Kisumu',
-        type: 'full-time',
-        salary: 'KES 90,000 - 140,000',
-        description: 'Join our Digital Health team to lead the implementation of innovative health technology solutions across Kenya.',
-        requirements: ['Master\'s degree in Public Health', 'Experience in digital health'],
-        responsibilities: ['Lead digital health projects', 'Coordinate with stakeholders'],
-        benefits: ['Competitive salary', 'Travel allowances'],
-        deadline: new Date('2024-02-20'),
-        status: 'active',
-        postedAt: new Date('2024-01-05'),
-        createdBy: 'system'
-      }
-    ];
-
-    setApplications(demoApplications);
-    setAvailableJobs(demoJobs);
+    // No demo data - load from Firebase
+    setApplications([]);
+    setAvailableJobs([]);
   };
 
   const loadApplications = async () => {

@@ -10,38 +10,38 @@ import {
   Eye, 
   Edit, 
   Trash2, 
-  CheckCircle, 
   Clock, 
+  CheckCircle, 
   XCircle, 
   Calendar,
   Mail,
   Phone,
   MapPin,
   Building,
-  DollarSign,
   LogOut,
   Shield,
-  Download,
   Send,
   AlertCircle,
+  Download,
+  Star,
   TrendingUp,
   UserCheck,
-  FileCheck
+  X
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useEmailNotifications } from './EmailNotificationService';
 import { 
   collection, 
-  addDoc, 
+  query, 
+  where, 
   getDocs, 
-  doc, 
+  orderBy, 
+  onSnapshot, 
+  addDoc, 
   updateDoc, 
   deleteDoc, 
-  query, 
-  orderBy, 
-  onSnapshot,
-  serverTimestamp,
-  where
+  doc,
+  serverTimestamp 
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 
@@ -82,17 +82,21 @@ interface Application {
 const AdminDashboard: React.FC = () => {
   const { currentUser, userProfile, logout } = useAuth();
   const { sendStatusUpdateEmail, sendJobPostedNotification } = useEmailNotifications();
-  
   const [activeTab, setActiveTab] = useState<'overview' | 'jobs' | 'applications' | 'analytics'>('overview');
   const [jobs, setJobs] = useState<JobListing[]>([]);
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  
-  // Job form state
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [showJobModal, setShowJobModal] = useState(false);
-  const [editingJob, setEditingJob] = useState<JobListing | null>(null);
+  const [showApplicationModal, setShowApplicationModal] = useState(false);
+  const [selectedJob, setSelectedJob] = useState<JobListing | null>(null);
+  const [selectedApplication, setSelectedApplication] = useState<Application | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+
+  // Job form state
   const [jobForm, setJobForm] = useState({
     title: '',
     department: '',
@@ -106,29 +110,15 @@ const AdminDashboard: React.FC = () => {
     deadline: '',
     status: 'active' as 'active' | 'closed' | 'draft'
   });
-  
-  // Application filters
-  const [applicationFilters, setApplicationFilters] = useState({
-    status: 'all',
-    department: 'all',
-    search: ''
-  });
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [currentUser]);
 
   const loadData = async () => {
     try {
       setLoading(true);
-      
-      // For demo purposes, load sample data
-      if (userProfile?.uid === 'demo-hr-user') {
-        loadDemoData();
-      } else {
-        // Load real data from Firebase
-        await Promise.all([loadJobs(), loadApplications()]);
-      }
+      await Promise.all([loadJobs(), loadApplications()]);
     } catch (error) {
       console.error('Error loading data:', error);
       setError('Failed to load data');
@@ -137,101 +127,26 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  const loadDemoData = () => {
-    // Demo jobs
-    const demoJobs: JobListing[] = [
-      {
-        id: 'job-1',
-        title: 'Health Data Analyst',
-        department: 'Data & Analytics',
-        location: 'Nairobi',
-        type: 'full-time',
-        salary: 'KES 80,000 - 120,000',
-        description: 'Analyze healthcare data to identify trends and patterns.',
-        requirements: ['Bachelor\'s degree in Statistics', 'Experience with SQL and Python'],
-        responsibilities: ['Analyze healthcare data', 'Create reports and dashboards'],
-        benefits: ['Health insurance', 'Professional development'],
-        deadline: new Date('2024-02-15'),
-        status: 'active',
-        postedAt: new Date('2024-01-01'),
-        createdBy: 'demo-hr-user'
-      },
-      {
-        id: 'job-2',
-        title: 'Software Developer',
-        department: 'Information Technology',
-        location: 'Nairobi',
-        type: 'full-time',
-        salary: 'KES 120,000 - 180,000',
-        description: 'Develop and maintain digital health applications.',
-        requirements: ['Bachelor\'s degree in Computer Science', 'Experience with React and Node.js'],
-        responsibilities: ['Develop web applications', 'Maintain existing systems'],
-        benefits: ['Competitive salary', 'Flexible working hours'],
-        deadline: new Date('2024-02-28'),
-        status: 'active',
-        postedAt: new Date('2024-01-08'),
-        createdBy: 'demo-hr-user'
-      }
-    ];
-
-    // Demo applications
-    const demoApplications: Application[] = [
-      {
-        id: 'app-1',
-        applicantName: 'Jane Smith',
-        applicantEmail: 'jane.smith@email.com',
-        applicantPhone: '+254 700 123 456',
-        jobId: 'job-1',
-        jobTitle: 'Health Data Analyst',
-        department: 'Data & Analytics',
-        status: 'under-review',
-        stage: 'initial-review',
-        submittedAt: new Date('2024-01-15'),
-        lastUpdated: new Date('2024-01-16'),
-        coverLetter: 'I am excited to apply for the Health Data Analyst position...',
-        notes: 'Strong background in statistics and healthcare data.',
-        createdBy: 'public-applicant'
-      },
-      {
-        id: 'app-2',
-        applicantName: 'John Doe',
-        applicantEmail: 'john.doe@email.com',
-        applicantPhone: '+254 700 789 012',
-        jobId: 'job-2',
-        jobTitle: 'Software Developer',
-        department: 'Information Technology',
-        status: 'shortlisted',
-        stage: 'technical-review',
-        submittedAt: new Date('2024-01-20'),
-        lastUpdated: new Date('2024-01-22'),
-        coverLetter: 'I have 5 years of experience in full-stack development...',
-        notes: 'Excellent technical skills, good portfolio.',
-        createdBy: 'public-applicant'
-      }
-    ];
-
-    setJobs(demoJobs);
-    setApplications(demoApplications);
-  };
-
   const loadJobs = async () => {
     try {
       const jobsRef = collection(db, 'jobs');
       const q = query(jobsRef, orderBy('postedAt', 'desc'));
-      const querySnapshot = await getDocs(q);
       
-      const jobsData: JobListing[] = [];
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        jobsData.push({
-          id: doc.id,
-          ...data,
-          deadline: data.deadline.toDate(),
-          postedAt: data.postedAt.toDate()
-        } as JobListing);
+      const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const jobsData: JobListing[] = [];
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          jobsData.push({
+            id: doc.id,
+            ...data,
+            deadline: data.deadline.toDate(),
+            postedAt: data.postedAt.toDate()
+          } as JobListing);
+        });
+        setJobs(jobsData);
       });
-      
-      setJobs(jobsData);
+
+      return unsubscribe;
     } catch (error) {
       console.error('Error loading jobs:', error);
     }
@@ -241,20 +156,22 @@ const AdminDashboard: React.FC = () => {
     try {
       const applicationsRef = collection(db, 'applications');
       const q = query(applicationsRef, orderBy('submittedAt', 'desc'));
-      const querySnapshot = await getDocs(q);
       
-      const applicationsData: Application[] = [];
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        applicationsData.push({
-          id: doc.id,
-          ...data,
-          submittedAt: data.submittedAt.toDate(),
-          lastUpdated: data.lastUpdated.toDate()
-        } as Application);
+      const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const applicationsData: Application[] = [];
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          applicationsData.push({
+            id: doc.id,
+            ...data,
+            submittedAt: data.submittedAt.toDate(),
+            lastUpdated: data.lastUpdated.toDate()
+          } as Application);
+        });
+        setApplications(applicationsData);
       });
-      
-      setApplications(applicationsData);
+
+      return unsubscribe;
     } catch (error) {
       console.error('Error loading applications:', error);
     }
@@ -262,7 +179,7 @@ const AdminDashboard: React.FC = () => {
 
   const handleCreateJob = async () => {
     try {
-      if (!jobForm.title || !jobForm.department || !jobForm.description) {
+      if (!jobForm.title || !jobForm.department || !jobForm.location || !jobForm.deadline) {
         setError('Please fill in all required fields');
         return;
       }
@@ -273,98 +190,41 @@ const AdminDashboard: React.FC = () => {
         responsibilities: jobForm.responsibilities.filter(resp => resp.trim() !== ''),
         benefits: jobForm.benefits.filter(benefit => benefit.trim() !== ''),
         deadline: new Date(jobForm.deadline),
-        postedAt: new Date(),
-        createdBy: currentUser?.uid || 'unknown'
+        postedAt: serverTimestamp(),
+        createdBy: currentUser?.uid || 'admin'
       };
 
-      if (userProfile?.uid === 'demo-hr-user') {
-        // Demo mode - just add to local state
-        const newJob: JobListing = {
-          id: `job-${Date.now()}`,
-          ...jobData
-        };
-        setJobs(prev => [newJob, ...prev]);
-        setSuccess('Job posted successfully!');
-      } else {
-        // Real mode - save to Firebase
-        await addDoc(collection(db, 'jobs'), {
+      if (isEditing && selectedJob) {
+        await updateDoc(doc(db, 'jobs', selectedJob.id), {
           ...jobData,
-          postedAt: serverTimestamp(),
-          deadline: new Date(jobForm.deadline)
+          postedAt: selectedJob.postedAt // Keep original posted date when editing
         });
-        await loadJobs();
+        setSuccess('Job updated successfully!');
+      } else {
+        await addDoc(collection(db, 'jobs'), jobData);
+        await sendJobPostedNotification(jobForm.title, jobForm.department);
         setSuccess('Job posted successfully!');
       }
 
-      // Send notification
-      await sendJobPostedNotification(jobForm.title, jobForm.department);
-      
       resetJobForm();
       setShowJobModal(false);
-      setTimeout(() => setSuccess(''), 3000);
+      setTimeout(() => setSuccess(''), 5000);
     } catch (error) {
-      console.error('Error creating job:', error);
-      setError('Failed to create job');
-    }
-  };
-
-  const handleUpdateJob = async () => {
-    try {
-      if (!editingJob || !jobForm.title || !jobForm.department || !jobForm.description) {
-        setError('Please fill in all required fields');
-        return;
-      }
-
-      const jobData = {
-        ...jobForm,
-        requirements: jobForm.requirements.filter(req => req.trim() !== ''),
-        responsibilities: jobForm.responsibilities.filter(resp => resp.trim() !== ''),
-        benefits: jobForm.benefits.filter(benefit => benefit.trim() !== ''),
-        deadline: new Date(jobForm.deadline)
-      };
-
-      if (userProfile?.uid === 'demo-hr-user') {
-        // Demo mode - update local state
-        setJobs(prev => prev.map(job => 
-          job.id === editingJob.id ? { ...job, ...jobData } : job
-        ));
-        setSuccess('Job updated successfully!');
-      } else {
-        // Real mode - update in Firebase
-        await updateDoc(doc(db, 'jobs', editingJob.id), jobData);
-        await loadJobs();
-        setSuccess('Job updated successfully!');
-      }
-
-      resetJobForm();
-      setShowJobModal(false);
-      setEditingJob(null);
-      setTimeout(() => setSuccess(''), 3000);
-    } catch (error) {
-      console.error('Error updating job:', error);
-      setError('Failed to update job');
+      console.error('Error saving job:', error);
+      setError('Failed to save job. Please try again.');
     }
   };
 
   const handleDeleteJob = async (jobId: string) => {
-    if (!confirm('Are you sure you want to delete this job?')) return;
-
-    try {
-      if (userProfile?.uid === 'demo-hr-user') {
-        // Demo mode - remove from local state
-        setJobs(prev => prev.filter(job => job.id !== jobId));
-        setSuccess('Job deleted successfully!');
-      } else {
-        // Real mode - delete from Firebase
+    if (window.confirm('Are you sure you want to delete this job? This action cannot be undone.')) {
+      try {
         await deleteDoc(doc(db, 'jobs', jobId));
-        await loadJobs();
         setSuccess('Job deleted successfully!');
+        setTimeout(() => setSuccess(''), 5000);
+      } catch (error) {
+        console.error('Error deleting job:', error);
+        setError('Failed to delete job. Please try again.');
       }
-      
-      setTimeout(() => setSuccess(''), 3000);
-    } catch (error) {
-      console.error('Error deleting job:', error);
-      setError('Failed to delete job');
     }
   };
 
@@ -373,25 +233,12 @@ const AdminDashboard: React.FC = () => {
       const application = applications.find(app => app.id === applicationId);
       if (!application) return;
 
-      if (userProfile?.uid === 'demo-hr-user') {
-        // Demo mode - update local state
-        setApplications(prev => prev.map(app => 
-          app.id === applicationId 
-            ? { ...app, status: newStatus as any, lastUpdated: new Date() }
-            : app
-        ));
-        setSuccess('Application status updated!');
-      } else {
-        // Real mode - update in Firebase
-        await updateDoc(doc(db, 'applications', applicationId), {
-          status: newStatus,
-          lastUpdated: serverTimestamp()
-        });
-        await loadApplications();
-        setSuccess('Application status updated!');
-      }
+      await updateDoc(doc(db, 'applications', applicationId), {
+        status: newStatus,
+        lastUpdated: serverTimestamp(),
+        notes: `Status updated to ${newStatus} by ${userProfile?.displayName || 'Admin'}`
+      });
 
-      // Send email notification
       await sendStatusUpdateEmail(
         application.applicantEmail,
         application.jobTitle,
@@ -399,10 +246,11 @@ const AdminDashboard: React.FC = () => {
         newStatus
       );
 
-      setTimeout(() => setSuccess(''), 3000);
+      setSuccess('Application status updated successfully!');
+      setTimeout(() => setSuccess(''), 5000);
     } catch (error) {
       console.error('Error updating application status:', error);
-      setError('Failed to update application status');
+      setError('Failed to update application status. Please try again.');
     }
   };
 
@@ -420,6 +268,27 @@ const AdminDashboard: React.FC = () => {
       deadline: '',
       status: 'active'
     });
+    setIsEditing(false);
+    setSelectedJob(null);
+  };
+
+  const editJob = (job: JobListing) => {
+    setJobForm({
+      title: job.title,
+      department: job.department,
+      location: job.location,
+      type: job.type,
+      salary: job.salary,
+      description: job.description,
+      requirements: job.requirements.length > 0 ? job.requirements : [''],
+      responsibilities: job.responsibilities.length > 0 ? job.responsibilities : [''],
+      benefits: job.benefits.length > 0 ? job.benefits : [''],
+      deadline: job.deadline.toISOString().split('T')[0],
+      status: job.status
+    });
+    setSelectedJob(job);
+    setIsEditing(true);
+    setShowJobModal(true);
   };
 
   const addArrayField = (field: 'requirements' | 'responsibilities' | 'benefits') => {
@@ -443,31 +312,68 @@ const AdminDashboard: React.FC = () => {
     }));
   };
 
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'hired':
+        return 'bg-green-100 text-green-800';
+      case 'shortlisted':
+        return 'bg-blue-100 text-blue-800';
+      case 'under-review':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'interview-scheduled':
+        return 'bg-purple-100 text-purple-800';
+      case 'rejected':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'hired':
+        return <CheckCircle className="w-4 h-4" />;
+      case 'shortlisted':
+        return <Eye className="w-4 h-4" />;
+      case 'under-review':
+        return <Clock className="w-4 h-4" />;
+      case 'interview-scheduled':
+        return <Calendar className="w-4 h-4" />;
+      case 'rejected':
+        return <XCircle className="w-4 h-4" />;
+      default:
+        return <FileText className="w-4 h-4" />;
+    }
+  };
+
   const filteredApplications = applications.filter(app => {
-    const matchesStatus = applicationFilters.status === 'all' || app.status === applicationFilters.status;
-    const matchesDepartment = applicationFilters.department === 'all' || app.department === applicationFilters.department;
-    const matchesSearch = applicationFilters.search === '' || 
-      app.applicantName.toLowerCase().includes(applicationFilters.search.toLowerCase()) ||
-      app.applicantEmail.toLowerCase().includes(applicationFilters.search.toLowerCase()) ||
-      app.jobTitle.toLowerCase().includes(applicationFilters.search.toLowerCase());
+    const matchesSearch = searchTerm === '' || 
+      app.applicantName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      app.jobTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      app.applicantEmail.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || app.status === statusFilter;
     
-    return matchesStatus && matchesDepartment && matchesSearch;
+    return matchesSearch && matchesStatus;
   });
 
-  // Analytics calculations
+  // Calculate statistics
   const totalJobs = jobs.length;
-  const activeJobs = jobs.filter(job => job.status === 'active').length;
+  const activeJobs = jobs.filter(job => job.status === 'active' && job.deadline > new Date()).length;
   const totalApplications = applications.length;
-  const pendingApplications = applications.filter(app => app.status === 'submitted' || app.status === 'under-review').length;
-  const shortlistedApplications = applications.filter(app => app.status === 'shortlisted').length;
-  const hiredApplications = applications.filter(app => app.status === 'hired').length;
+  const pendingApplications = applications.filter(app => 
+    app.status === 'submitted' || app.status === 'under-review'
+  ).length;
+  const shortlistedApplications = applications.filter(app => 
+    app.status === 'shortlisted' || app.status === 'interview-scheduled'
+  ).length;
+  const hiredApplicants = applications.filter(app => app.status === 'hired').length;
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-green-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading dashboard...</p>
+          <p className="text-gray-600">Loading admin dashboard...</p>
         </div>
       </div>
     );
@@ -482,14 +388,14 @@ const AdminDashboard: React.FC = () => {
             <div className="flex items-center">
               <Shield className="w-8 h-8 text-green-600 mr-3" />
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">HR Dashboard</h1>
-                <p className="text-gray-600">Digital Health Agency</p>
+                <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
+                <p className="text-gray-600">Digital Health Agency - HR Management</p>
               </div>
             </div>
             <div className="flex items-center space-x-4">
               <div className="text-right">
                 <p className="text-sm font-medium text-gray-900">{userProfile?.displayName}</p>
-                <p className="text-sm text-gray-500">{userProfile?.role}</p>
+                <p className="text-sm text-gray-500">{userProfile?.email}</p>
               </div>
               <button
                 onClick={logout}
@@ -532,7 +438,7 @@ const AdminDashboard: React.FC = () => {
           <nav className="-mb-px flex space-x-8">
             {[
               { id: 'overview', label: 'Overview', icon: BarChart3 },
-              { id: 'jobs', label: 'Jobs', icon: Briefcase },
+              { id: 'jobs', label: 'Job Management', icon: Briefcase },
               { id: 'applications', label: 'Applications', icon: FileText },
               { id: 'analytics', label: 'Analytics', icon: TrendingUp }
             ].map((tab) => {
@@ -560,24 +466,20 @@ const AdminDashboard: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {activeTab === 'overview' && (
           <div className="space-y-8">
+            {/* Welcome Section */}
+            <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-lg p-8 text-white">
+              <h2 className="text-3xl font-bold mb-2">Welcome back, {userProfile?.displayName}!</h2>
+              <p className="text-green-100 text-lg">
+                Manage job postings, review applications, and oversee the hiring process for the Digital Health Agency.
+              </p>
+            </div>
+
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <div className="bg-white p-6 rounded-lg shadow-sm border">
                 <div className="flex items-center">
                   <div className="p-2 bg-blue-100 rounded-lg">
                     <Briefcase className="w-6 h-6 text-blue-600" />
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Total Jobs</p>
-                    <p className="text-2xl font-bold text-gray-900">{totalJobs}</p>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="bg-white p-6 rounded-lg shadow-sm border">
-                <div className="flex items-center">
-                  <div className="p-2 bg-green-100 rounded-lg">
-                    <CheckCircle className="w-6 h-6 text-green-600" />
                   </div>
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-600">Active Jobs</p>
@@ -588,11 +490,11 @@ const AdminDashboard: React.FC = () => {
               
               <div className="bg-white p-6 rounded-lg shadow-sm border">
                 <div className="flex items-center">
-                  <div className="p-2 bg-purple-100 rounded-lg">
-                    <FileText className="w-6 h-6 text-purple-600" />
+                  <div className="p-2 bg-yellow-100 rounded-lg">
+                    <FileText className="w-6 h-6 text-yellow-600" />
                   </div>
                   <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Applications</p>
+                    <p className="text-sm font-medium text-gray-600">Total Applications</p>
                     <p className="text-2xl font-bold text-gray-900">{totalApplications}</p>
                   </div>
                 </div>
@@ -600,12 +502,24 @@ const AdminDashboard: React.FC = () => {
               
               <div className="bg-white p-6 rounded-lg shadow-sm border">
                 <div className="flex items-center">
-                  <div className="p-2 bg-orange-100 rounded-lg">
-                    <UserCheck className="w-6 h-6 text-orange-600" />
+                  <div className="p-2 bg-purple-100 rounded-lg">
+                    <Eye className="w-6 h-6 text-purple-600" />
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-600">Shortlisted</p>
+                    <p className="text-2xl font-bold text-gray-900">{shortlistedApplications}</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-white p-6 rounded-lg shadow-sm border">
+                <div className="flex items-center">
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <UserCheck className="w-6 h-6 text-green-600" />
                   </div>
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-600">Hired</p>
-                    <p className="text-2xl font-bold text-gray-900">{hiredApplications}</p>
+                    <p className="text-2xl font-bold text-gray-900">{hiredApplicants}</p>
                   </div>
                 </div>
               </div>
@@ -618,7 +532,7 @@ const AdminDashboard: React.FC = () => {
               </div>
               <div className="p-6">
                 {applications.slice(0, 5).map((application) => (
-                  <div key={application.id} className="flex items-center justify-between py-3 border-b last:border-b-0">
+                  <div key={application.id} className="flex items-center justify-between py-4 border-b last:border-b-0">
                     <div className="flex items-center space-x-4">
                       <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
                         <Users className="w-5 h-5 text-gray-600" />
@@ -629,14 +543,9 @@ const AdminDashboard: React.FC = () => {
                       </div>
                     </div>
                     <div className="text-right">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        application.status === 'hired' ? 'bg-green-100 text-green-800' :
-                        application.status === 'shortlisted' ? 'bg-blue-100 text-blue-800' :
-                        application.status === 'under-review' ? 'bg-yellow-100 text-yellow-800' :
-                        application.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {application.status.replace('-', ' ')}
+                      <span className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(application.status)}`}>
+                        {getStatusIcon(application.status)}
+                        <span className="ml-1">{application.status.replace('-', ' ')}</span>
                       </span>
                       <p className="text-xs text-gray-500 mt-1">
                         {application.submittedAt.toLocaleDateString()}
@@ -644,6 +553,13 @@ const AdminDashboard: React.FC = () => {
                     </div>
                   </div>
                 ))}
+                
+                {applications.length === 0 && (
+                  <div className="text-center py-8">
+                    <FileText className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                    <p className="text-gray-500">No applications yet.</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -657,7 +573,6 @@ const AdminDashboard: React.FC = () => {
               <button
                 onClick={() => {
                   resetJobForm();
-                  setEditingJob(null);
                   setShowJobModal(true);
                 }}
                 className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
@@ -668,95 +583,88 @@ const AdminDashboard: React.FC = () => {
             </div>
 
             {/* Jobs List */}
-            <div className="bg-white rounded-lg shadow-sm border">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Job Title
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Department
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Location
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Deadline
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {jobs.map((job) => (
-                      <tr key={job.id}>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">{job.title}</div>
-                            <div className="text-sm text-gray-500">{job.type}</div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {job.department}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {job.location}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+            <div className="space-y-4">
+              {jobs.map((job) => {
+                const daysLeft = Math.ceil((job.deadline.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                const isExpired = daysLeft <= 0;
+                
+                return (
+                  <div key={job.id} className="bg-white rounded-lg shadow-sm border p-6">
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-3 mb-2">
+                          <h3 className="text-xl font-semibold text-gray-900">{job.title}</h3>
+                          <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
                             job.status === 'active' ? 'bg-green-100 text-green-800' :
                             job.status === 'closed' ? 'bg-red-100 text-red-800' :
                             'bg-gray-100 text-gray-800'
                           }`}>
                             {job.status}
                           </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {job.deadline.toLocaleDateString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <div className="flex space-x-2">
-                            <button
-                              onClick={() => {
-                                setEditingJob(job);
-                                setJobForm({
-                                  title: job.title,
-                                  department: job.department,
-                                  location: job.location,
-                                  type: job.type,
-                                  salary: job.salary,
-                                  description: job.description,
-                                  requirements: job.requirements,
-                                  responsibilities: job.responsibilities,
-                                  benefits: job.benefits,
-                                  deadline: job.deadline.toISOString().split('T')[0],
-                                  status: job.status
-                                });
-                                setShowJobModal(true);
-                              }}
-                              className="text-indigo-600 hover:text-indigo-900"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteJob(job.id)}
-                              className="text-red-600 hover:text-red-900"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                          {isExpired && (
+                            <span className="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
+                              Expired
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center space-x-4 text-sm text-gray-600 mb-3">
+                          <div className="flex items-center">
+                            <Building className="w-4 h-4 mr-1" />
+                            {job.department}
                           </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                          <div className="flex items-center">
+                            <MapPin className="w-4 h-4 mr-1" />
+                            {job.location}
+                          </div>
+                          <div className="flex items-center">
+                            <Calendar className="w-4 h-4 mr-1" />
+                            Deadline: {job.deadline.toLocaleDateString()}
+                          </div>
+                        </div>
+                        <p className="text-gray-700 line-clamp-2">{job.description}</p>
+                      </div>
+                      <div className="ml-6 flex space-x-2">
+                        <button
+                          onClick={() => editJob(job)}
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        >
+                          <Edit className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteJob(job.id)}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div className="flex justify-between items-center text-sm text-gray-500">
+                      <span>Posted: {job.postedAt.toLocaleDateString()}</span>
+                      <span>
+                        {applications.filter(app => app.jobId === job.id).length} applications
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+              
+              {jobs.length === 0 && (
+                <div className="text-center py-12">
+                  <Briefcase className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No jobs posted yet</h3>
+                  <p className="text-gray-600 mb-4">Start by posting your first job opportunity.</p>
+                  <button
+                    onClick={() => {
+                      resetJobForm();
+                      setShowJobModal(true);
+                    }}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    Post New Job
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -765,27 +673,27 @@ const AdminDashboard: React.FC = () => {
           <div className="space-y-6">
             {/* Applications Header */}
             <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-gray-900">Application Management</h2>
+              <h2 className="text-2xl font-bold text-gray-900">Applications Management</h2>
             </div>
 
             {/* Filters */}
             <div className="bg-white rounded-lg shadow-sm border p-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                   <input
                     type="text"
                     placeholder="Search applications..."
                     className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    value={applicationFilters.search}
-                    onChange={(e) => setApplicationFilters(prev => ({ ...prev, search: e.target.value }))}
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
                   />
                 </div>
                 
                 <select
                   className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  value={applicationFilters.status}
-                  onChange={(e) => setApplicationFilters(prev => ({ ...prev, status: e.target.value }))}
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
                 >
                   <option value="all">All Statuses</option>
                   <option value="submitted">Submitted</option>
@@ -795,97 +703,86 @@ const AdminDashboard: React.FC = () => {
                   <option value="rejected">Rejected</option>
                   <option value="hired">Hired</option>
                 </select>
-                
-                <select
-                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  value={applicationFilters.department}
-                  onChange={(e) => setApplicationFilters(prev => ({ ...prev, department: e.target.value }))}
-                >
-                  <option value="all">All Departments</option>
-                  <option value="Data & Analytics">Data & Analytics</option>
-                  <option value="Information Technology">Information Technology</option>
-                  <option value="Digital Health">Digital Health</option>
-                </select>
               </div>
             </div>
 
             {/* Applications List */}
-            <div className="bg-white rounded-lg shadow-sm border">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Applicant
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Job Title
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Department
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Submitted
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {filteredApplications.map((application) => (
-                      <tr key={application.id}>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">{application.applicantName}</div>
-                            <div className="text-sm text-gray-500">{application.applicantEmail}</div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+            <div className="space-y-4">
+              {filteredApplications.map((application) => (
+                <div key={application.id} className="bg-white rounded-lg shadow-sm border p-6">
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="flex-1">
+                      <h3 className="text-xl font-semibold text-gray-900 mb-2">{application.applicantName}</h3>
+                      <div className="flex items-center space-x-4 text-sm text-gray-600 mb-3">
+                        <div className="flex items-center">
+                          <Mail className="w-4 h-4 mr-1" />
+                          {application.applicantEmail}
+                        </div>
+                        <div className="flex items-center">
+                          <Phone className="w-4 h-4 mr-1" />
+                          {application.applicantPhone}
+                        </div>
+                        <div className="flex items-center">
+                          <Briefcase className="w-4 h-4 mr-1" />
                           {application.jobTitle}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {application.department}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <select
-                            value={application.status}
-                            onChange={(e) => handleUpdateApplicationStatus(application.id, e.target.value)}
-                            className={`text-xs font-semibold rounded-full px-2 py-1 border-0 ${
-                              application.status === 'hired' ? 'bg-green-100 text-green-800' :
-                              application.status === 'shortlisted' ? 'bg-blue-100 text-blue-800' :
-                              application.status === 'under-review' ? 'bg-yellow-100 text-yellow-800' :
-                              application.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                              'bg-gray-100 text-gray-800'
-                            }`}
-                          >
-                            <option value="submitted">Submitted</option>
-                            <option value="under-review">Under Review</option>
-                            <option value="shortlisted">Shortlisted</option>
-                            <option value="interview-scheduled">Interview Scheduled</option>
-                            <option value="rejected">Rejected</option>
-                            <option value="hired">Hired</option>
-                          </select>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {application.submittedAt.toLocaleDateString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <button
-                            className="text-indigo-600 hover:text-indigo-900"
-                            title="View Details"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                        </div>
+                      </div>
+                      <p className="text-gray-700 line-clamp-2">{application.coverLetter}</p>
+                    </div>
+                    <div className="ml-6 text-right">
+                      <span className={`inline-flex items-center px-3 py-1 text-sm font-semibold rounded-full ${getStatusColor(application.status)}`}>
+                        {getStatusIcon(application.status)}
+                        <span className="ml-2">{application.status.replace('-', ' ')}</span>
+                      </span>
+                      <p className="text-xs text-gray-500 mt-2">
+                        Applied: {application.submittedAt.toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex justify-between items-center">
+                    <div className="text-sm text-gray-500">
+                      Department: {application.department}
+                    </div>
+                    <div className="flex space-x-2">
+                      <select
+                        className="px-3 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                        value={application.status}
+                        onChange={(e) => handleUpdateApplicationStatus(application.id, e.target.value)}
+                      >
+                        <option value="submitted">Submitted</option>
+                        <option value="under-review">Under Review</option>
+                        <option value="shortlisted">Shortlisted</option>
+                        <option value="interview-scheduled">Interview Scheduled</option>
+                        <option value="rejected">Rejected</option>
+                        <option value="hired">Hired</option>
+                      </select>
+                      <button
+                        onClick={() => {
+                          setSelectedApplication(application);
+                          setShowApplicationModal(true);
+                        }}
+                        className="px-3 py-1 text-sm text-green-600 border border-green-600 rounded hover:bg-green-50 transition-colors"
+                      >
+                        View Details
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              
+              {filteredApplications.length === 0 && (
+                <div className="text-center py-12">
+                  <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No applications found</h3>
+                  <p className="text-gray-600">
+                    {applications.length === 0 
+                      ? "No applications have been submitted yet."
+                      : "Try adjusting your search criteria."
+                    }
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -897,59 +794,71 @@ const AdminDashboard: React.FC = () => {
             {/* Analytics Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <div className="bg-white p-6 rounded-lg shadow-sm border">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Pending Applications</p>
-                    <p className="text-3xl font-bold text-orange-600">{pendingApplications}</p>
-                  </div>
-                  <Clock className="w-8 h-8 text-orange-600" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Application Status Distribution</h3>
+                <div className="space-y-3">
+                  {['submitted', 'under-review', 'shortlisted', 'interview-scheduled', 'rejected', 'hired'].map(status => {
+                    const count = applications.filter(app => app.status === status).length;
+                    const percentage = totalApplications > 0 ? (count / totalApplications * 100).toFixed(1) : '0';
+                    
+                    return (
+                      <div key={status} className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600 capitalize">{status.replace('-', ' ')}</span>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-sm font-medium">{count}</span>
+                          <span className="text-xs text-gray-500">({percentage}%)</span>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
               
               <div className="bg-white p-6 rounded-lg shadow-sm border">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Shortlisted</p>
-                    <p className="text-3xl font-bold text-blue-600">{shortlistedApplications}</p>
-                  </div>
-                  <UserCheck className="w-8 h-8 text-blue-600" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Jobs by Department</h3>
+                <div className="space-y-3">
+                  {Array.from(new Set(jobs.map(job => job.department))).map(department => {
+                    const count = jobs.filter(job => job.department === department).length;
+                    
+                    return (
+                      <div key={department} className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">{department}</span>
+                        <span className="text-sm font-medium">{count}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
               
               <div className="bg-white p-6 rounded-lg shadow-sm border">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Hired</p>
-                    <p className="text-3xl font-bold text-green-600">{hiredApplications}</p>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <span className="text-sm text-gray-600">
+                      {applications.filter(app => {
+                        const dayAgo = new Date();
+                        dayAgo.setDate(dayAgo.getDate() - 1);
+                        return app.submittedAt > dayAgo;
+                      }).length} applications in last 24h
+                    </span>
                   </div>
-                  <FileCheck className="w-8 h-8 text-green-600" />
+                  <div className="flex items-center space-x-3">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                    <span className="text-sm text-gray-600">
+                      {jobs.filter(job => {
+                        const weekAgo = new Date();
+                        weekAgo.setDate(weekAgo.getDate() - 7);
+                        return job.postedAt > weekAgo;
+                      }).length} jobs posted this week
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                    <span className="text-sm text-gray-600">
+                      {applications.filter(app => app.status === 'hired').length} successful hires
+                    </span>
+                  </div>
                 </div>
-              </div>
-            </div>
-
-            {/* Department Breakdown */}
-            <div className="bg-white rounded-lg shadow-sm border p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Applications by Department</h3>
-              <div className="space-y-4">
-                {['Data & Analytics', 'Information Technology', 'Digital Health'].map((dept) => {
-                  const deptApplications = applications.filter(app => app.department === dept).length;
-                  const percentage = totalApplications > 0 ? (deptApplications / totalApplications) * 100 : 0;
-                  
-                  return (
-                    <div key={dept}>
-                      <div className="flex justify-between text-sm">
-                        <span className="font-medium text-gray-700">{dept}</span>
-                        <span className="text-gray-500">{deptApplications} applications</span>
-                      </div>
-                      <div className="mt-1 bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-green-600 h-2 rounded-full"
-                          style={{ width: `${percentage}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                  );
-                })}
               </div>
             </div>
           </div>
@@ -961,15 +870,23 @@ const AdminDashboard: React.FC = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b">
-              <h2 className="text-2xl font-bold text-gray-900">
-                {editingJob ? 'Edit Job' : 'Post New Job'}
-              </h2>
+              <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold text-gray-900">
+                  {isEditing ? 'Edit Job' : 'Post New Job'}
+                </h2>
+                <button
+                  onClick={() => setShowJobModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
             </div>
             
             <div className="p-6">
               <form onSubmit={(e) => {
                 e.preventDefault();
-                editingJob ? handleUpdateJob() : handleCreateJob();
+                handleCreateJob();
               }} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
@@ -989,29 +906,24 @@ const AdminDashboard: React.FC = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Department *
                     </label>
-                    <select
+                    <input
+                      type="text"
                       required
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                       value={jobForm.department}
                       onChange={(e) => setJobForm(prev => ({ ...prev, department: e.target.value }))}
-                    >
-                      <option value="">Select Department</option>
-                      <option value="Data & Analytics">Data & Analytics</option>
-                      <option value="Information Technology">Information Technology</option>
-                      <option value="Digital Health">Digital Health</option>
-                      <option value="Human Resources">Human Resources</option>
-                      <option value="Finance">Finance</option>
-                    </select>
+                    />
                   </div>
                 </div>
-
+                
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Location
+                      Location *
                     </label>
                     <input
                       type="text"
+                      required
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                       value={jobForm.location}
                       onChange={(e) => setJobForm(prev => ({ ...prev, location: e.target.value }))}
@@ -1020,7 +932,7 @@ const AdminDashboard: React.FC = () => {
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Job Type
+                      Job Type *
                     </label>
                     <select
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
@@ -1031,140 +943,6 @@ const AdminDashboard: React.FC = () => {
                       <option value="part-time">Part Time</option>
                       <option value="contract">Contract</option>
                     </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Salary Range
-                    </label>
-                    <input
-                      type="text"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                      placeholder="e.g., KES 80,000 - 120,000"
-                      value={jobForm.salary}
-                      onChange={(e) => setJobForm(prev => ({ ...prev, salary: e.target.value }))}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Job Description *
-                  </label>
-                  <textarea
-                    rows={4}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    value={jobForm.description}
-                    onChange={(e) => setJobForm(prev => ({ ...prev, description: e.target.value }))}
-                  />
-                </div>
-
-                {/* Requirements */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Requirements
-                  </label>
-                  {jobForm.requirements.map((req, index) => (
-                    <div key={index} className="flex items-center space-x-2 mb-2">
-                      <input
-                        type="text"
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                        value={req}
-                        onChange={(e) => updateArrayField('requirements', index, e.target.value)}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeArrayField('requirements', index)}
-                        className="text-red-600 hover:text-red-800"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => addArrayField('requirements')}
-                    className="text-green-600 hover:text-green-800 text-sm"
-                  >
-                    + Add Requirement
-                  </button>
-                </div>
-
-                {/* Responsibilities */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Responsibilities
-                  </label>
-                  {jobForm.responsibilities.map((resp, index) => (
-                    <div key={index} className="flex items-center space-x-2 mb-2">
-                      <input
-                        type="text"
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                        value={resp}
-                        onChange={(e) => updateArrayField('responsibilities', index, e.target.value)}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeArrayField('responsibilities', index)}
-                        className="text-red-600 hover:text-red-800"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => addArrayField('responsibilities')}
-                    className="text-green-600 hover:text-green-800 text-sm"
-                  >
-                    + Add Responsibility
-                  </button>
-                </div>
-
-                {/* Benefits */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Benefits
-                  </label>
-                  {jobForm.benefits.map((benefit, index) => (
-                    <div key={index} className="flex items-center space-x-2 mb-2">
-                      <input
-                        type="text"
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                        value={benefit}
-                        onChange={(e) => updateArrayField('benefits', index, e.target.value)}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeArrayField('benefits', index)}
-                        className="text-red-600 hover:text-red-800"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => addArrayField('benefits')}
-                    className="text-green-600 hover:text-green-800 text-sm"
-                  >
-                    + Add Benefit
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Application Deadline *
-                    </label>
-                    <input
-                      type="date"
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                      value={jobForm.deadline}
-                      onChange={(e) => setJobForm(prev => ({ ...prev, deadline: e.target.value }))}
-                    />
                   </div>
                   
                   <div>
@@ -1182,15 +960,148 @@ const AdminDashboard: React.FC = () => {
                     </select>
                   </div>
                 </div>
-
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Salary Range
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      placeholder="e.g., KES 80,000 - 120,000"
+                      value={jobForm.salary}
+                      onChange={(e) => setJobForm(prev => ({ ...prev, salary: e.target.value }))}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Application Deadline *
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      value={jobForm.deadline}
+                      onChange={(e) => setJobForm(prev => ({ ...prev, deadline: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Job Description *
+                  </label>
+                  <textarea
+                    rows={4}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    value={jobForm.description}
+                    onChange={(e) => setJobForm(prev => ({ ...prev, description: e.target.value }))}
+                  />
+                </div>
+                
+                {/* Requirements */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Requirements
+                  </label>
+                  {jobForm.requirements.map((req, index) => (
+                    <div key={index} className="flex items-center space-x-2 mb-2">
+                      <input
+                        type="text"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                        value={req}
+                        onChange={(e) => updateArrayField('requirements', index, e.target.value)}
+                        placeholder="Enter requirement"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeArrayField('requirements', index)}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => addArrayField('requirements')}
+                    className="text-sm text-green-600 hover:text-green-700"
+                  >
+                    + Add Requirement
+                  </button>
+                </div>
+                
+                {/* Responsibilities */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Responsibilities
+                  </label>
+                  {jobForm.responsibilities.map((resp, index) => (
+                    <div key={index} className="flex items-center space-x-2 mb-2">
+                      <input
+                        type="text"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                        value={resp}
+                        onChange={(e) => updateArrayField('responsibilities', index, e.target.value)}
+                        placeholder="Enter responsibility"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeArrayField('responsibilities', index)}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => addArrayField('responsibilities')}
+                    className="text-sm text-green-600 hover:text-green-700"
+                  >
+                    + Add Responsibility
+                  </button>
+                </div>
+                
+                {/* Benefits */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Benefits
+                  </label>
+                  {jobForm.benefits.map((benefit, index) => (
+                    <div key={index} className="flex items-center space-x-2 mb-2">
+                      <input
+                        type="text"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                        value={benefit}
+                        onChange={(e) => updateArrayField('benefits', index, e.target.value)}
+                        placeholder="Enter benefit"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeArrayField('benefits', index)}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => addArrayField('benefits')}
+                    className="text-sm text-green-600 hover:text-green-700"
+                  >
+                    + Add Benefit
+                  </button>
+                </div>
+                
                 <div className="flex justify-end space-x-4">
                   <button
                     type="button"
-                    onClick={() => {
-                      setShowJobModal(false);
-                      setEditingJob(null);
-                      resetJobForm();
-                    }}
+                    onClick={() => setShowJobModal(false)}
                     className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                   >
                     Cancel
@@ -1199,10 +1110,96 @@ const AdminDashboard: React.FC = () => {
                     type="submit"
                     className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
                   >
-                    {editingJob ? 'Update Job' : 'Post Job'}
+                    {isEditing ? 'Update Job' : 'Post Job'}
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Application Details Modal */}
+      {showApplicationModal && selectedApplication && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b">
+              <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold text-gray-900">Application Details</h2>
+                <button
+                  onClick={() => setShowApplicationModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">Applicant Information</h3>
+                  <div className="space-y-2 text-sm">
+                    <p><span className="font-medium">Name:</span> {selectedApplication.applicantName}</p>
+                    <p><span className="font-medium">Email:</span> {selectedApplication.applicantEmail}</p>
+                    <p><span className="font-medium">Phone:</span> {selectedApplication.applicantPhone}</p>
+                  </div>
+                </div>
+                
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">Application Details</h3>
+                  <div className="space-y-2 text-sm">
+                    <p><span className="font-medium">Position:</span> {selectedApplication.jobTitle}</p>
+                    <p><span className="font-medium">Department:</span> {selectedApplication.department}</p>
+                    <p><span className="font-medium">Applied:</span> {selectedApplication.submittedAt.toLocaleDateString()}</p>
+                    <p><span className="font-medium">Status:</span> 
+                      <span className={`ml-2 px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(selectedApplication.status)}`}>
+                        {selectedApplication.status.replace('-', ' ')}
+                      </span>
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-2">Cover Letter</h3>
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <p className="text-gray-700 whitespace-pre-wrap">{selectedApplication.coverLetter}</p>
+                </div>
+              </div>
+              
+              {selectedApplication.notes && (
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">Notes</h3>
+                  <div className="bg-blue-50 p-4 rounded-lg">
+                    <p className="text-blue-800">{selectedApplication.notes}</p>
+                  </div>
+                </div>
+              )}
+              
+              <div className="flex justify-end space-x-4">
+                <button
+                  onClick={() => setShowApplicationModal(false)}
+                  className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Close
+                </button>
+                <select
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  value={selectedApplication.status}
+                  onChange={(e) => {
+                    handleUpdateApplicationStatus(selectedApplication.id, e.target.value);
+                    setShowApplicationModal(false);
+                  }}
+                >
+                  <option value="submitted">Submitted</option>
+                  <option value="under-review">Under Review</option>
+                  <option value="shortlisted">Shortlisted</option>
+                  <option value="interview-scheduled">Interview Scheduled</option>
+                  <option value="rejected">Rejected</option>
+                  <option value="hired">Hired</option>
+                </select>
+              </div>
             </div>
           </div>
         </div>

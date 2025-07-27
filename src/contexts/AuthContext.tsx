@@ -46,54 +46,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   const login = async (email: string, password: string) => {
-    // Handle demo accounts
-    if (email === 'hr@dha.go.ke' && password === 'hr123456') {
-      // Create a mock user for demo
-      const mockUser = {
-        uid: 'demo-hr-user',
-        email: 'hr@dha.go.ke',
-        displayName: 'HR Manager'
-      } as User;
-      
-      const mockProfile: UserProfile = {
-        uid: 'demo-hr-user',
-        email: 'hr@dha.go.ke',
-        displayName: 'HR Manager',
-        role: 'admin',
-        createdAt: new Date()
-      };
-      
-      setCurrentUser(mockUser);
-      setUserProfile(mockProfile);
-      return;
-    }
-    
-    if (email === 'applicant@email.com' && password === 'applicant123') {
-      // Create a mock user for demo
-      const mockUser = {
-        uid: 'demo-applicant-user',
-        email: 'applicant@email.com',
-        displayName: 'John Doe'
-      } as User;
-      
-      const mockProfile: UserProfile = {
-        uid: 'demo-applicant-user',
-        email: 'applicant@email.com',
-        displayName: 'John Doe',
-        role: 'applicant',
-        createdAt: new Date()
-      };
-      
-      setCurrentUser(mockUser);
-      setUserProfile(mockProfile);
-      return;
-    }
-    
-    // For real accounts, use Firebase
     await signInWithEmailAndPassword(auth, email, password);
   };
 
   const register = async (email: string, password: string, displayName: string, role: 'applicant' | 'hr' | 'admin') => {
+    // Only allow admin role for the specific email
+    const finalRole = email === '6enard@gmail.com' ? 'admin' : 'applicant';
+    
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
     
@@ -102,7 +61,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       uid: user.uid,
       email: user.email!,
       displayName,
-      role,
+      role: finalRole,
       createdAt: new Date()
     };
     
@@ -110,14 +69,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const logout = async () => {
-    // Handle demo accounts
-    if (currentUser?.uid === 'demo-hr-user' || currentUser?.uid === 'demo-applicant-user') {
-      setCurrentUser(null);
-      setUserProfile(null);
-      return;
-    }
-    
-    // For real accounts, use Firebase
     await signOut(auth);
   };
 
@@ -137,6 +88,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 ? profileData.createdAt 
                 : new Date(profileData.createdAt)
             });
+          } else {
+            // If profile doesn't exist, create one (for existing users)
+            const newProfile: UserProfile = {
+              uid: user.uid,
+              email: user.email!,
+              displayName: user.displayName || user.email!.split('@')[0],
+              role: user.email === '6enard@gmail.com' ? 'admin' : 'applicant',
+              createdAt: new Date()
+            };
+            
+            await setDoc(doc(db, 'users', user.uid), newProfile);
+            setUserProfile(newProfile);
           }
         } catch (error) {
           console.error('Error fetching user profile:', error);

@@ -79,127 +79,38 @@ const JobBoard: React.FC<JobBoardProps> = ({ onApply, appliedJobs }) => {
     loadJobs();
   }, []);
 
-  const loadJobs = () => {
+  const loadJobs = async () => {
     try {
-      // For now, just show demo jobs for public viewing
-      // In production, you would load from Firebase with proper error handling
-      const demoJobs: JobListing[] = [
-          {
-            id: 'public-job-1',
-            title: 'Health Data Analyst',
-            department: 'Data & Analytics',
-            location: 'Nairobi',
-            type: 'full-time',
-            salary: 'KES 80,000 - 120,000',
-            description: 'We are seeking a skilled Health Data Analyst to join our team and help transform Kenya\'s healthcare system through data-driven insights. You will work with large healthcare datasets to identify trends, patterns, and opportunities for improvement.',
-            requirements: [
-              'Bachelor\'s degree in Statistics, Mathematics, Computer Science, or related field',
-              'Minimum 2 years of experience in data analysis',
-              'Proficiency in SQL, Python, or R',
-              'Experience with data visualization tools (Tableau, Power BI)',
-              'Knowledge of healthcare systems and terminology',
-              'Strong analytical and problem-solving skills'
-            ],
-            responsibilities: [
-              'Analyze healthcare data to identify trends and patterns',
-              'Create comprehensive reports and dashboards',
-              'Collaborate with healthcare professionals to understand data needs',
-              'Ensure data quality and integrity',
-              'Present findings to stakeholders',
-              'Support evidence-based decision making'
-            ],
-            benefits: [
-              'Competitive salary and benefits package',
-              'Health insurance coverage',
-              'Professional development opportunities',
-              'Flexible working arrangements',
-              'Annual leave and sick leave',
-              'Pension scheme contribution'
-            ],
-            deadline: new Date('2024-02-15'),
-            status: 'active',
-            postedAt: new Date('2024-01-01'),
-            createdBy: 'system'
-          },
-          {
-            id: 'public-job-2',
-            title: 'Digital Health Specialist',
-            department: 'Digital Health',
-            location: 'Kisumu',
-            type: 'full-time',
-            salary: 'KES 90,000 - 140,000',
-            description: 'Join our Digital Health team to lead the implementation of innovative health technology solutions across Kenya. You will work on projects that directly impact healthcare delivery and patient outcomes.',
-            requirements: [
-              'Master\'s degree in Public Health, Health Informatics, or related field',
-              'Minimum 3 years of experience in digital health or health technology',
-              'Knowledge of health information systems',
-              'Experience with project management',
-              'Understanding of Kenyan healthcare landscape',
-              'Excellent communication and leadership skills'
-            ],
-            responsibilities: [
-              'Lead digital health project implementation',
-              'Coordinate with healthcare facilities and stakeholders',
-              'Provide technical assistance and training',
-              'Monitor and evaluate project outcomes',
-              'Develop implementation strategies and guidelines',
-              'Support capacity building initiatives'
-            ],
-            benefits: [
-              'Competitive salary and comprehensive benefits',
-              'Travel allowances for field work',
-              'Professional development and training',
-              'Health and life insurance',
-              'Performance-based bonuses',
-              'Career advancement opportunities'
-            ],
-            deadline: new Date('2024-02-20'),
-            status: 'active',
-            postedAt: new Date('2024-01-05'),
-            createdBy: 'system'
-          },
-          {
-            id: 'public-job-3',
-            title: 'Software Developer',
-            department: 'Information Technology',
-            location: 'Nairobi',
-            type: 'full-time',
-            salary: 'KES 120,000 - 180,000',
-            description: 'We are looking for a talented Software Developer to join our IT team and help build innovative digital health solutions. You will work on web applications, mobile apps, and system integrations.',
-            requirements: [
-              'Bachelor\'s degree in Computer Science, Software Engineering, or related field',
-              'Minimum 3 years of experience in software development',
-              'Proficiency in JavaScript, React, Node.js, and databases',
-              'Experience with cloud platforms (AWS, Azure, or GCP)',
-              'Knowledge of healthcare standards (HL7, FHIR) is a plus',
-              'Strong problem-solving and debugging skills'
-            ],
-            responsibilities: [
-              'Develop and maintain web applications and APIs',
-              'Collaborate with cross-functional teams on product development',
-              'Write clean, maintainable, and well-documented code',
-              'Participate in code reviews and testing',
-              'Troubleshoot and resolve technical issues',
-              'Stay updated with latest technology trends'
-            ],
-            benefits: [
-              'Competitive salary and performance bonuses',
-              'Comprehensive health insurance',
-              'Professional development budget',
-              'Flexible working hours and remote work options',
-              'Modern development tools and equipment',
-              'Stock options and retirement benefits'
-            ],
-            deadline: new Date('2024-02-28'),
-            status: 'active',
-            postedAt: new Date('2024-01-08'),
-            createdBy: 'system'
+      setLoading(true);
+      const jobsRef = collection(db, 'jobs');
+      const q = query(
+        jobsRef, 
+        where('status', '==', 'active'),
+        orderBy('postedAt', 'desc')
+      );
+      
+      const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const jobsData: JobListing[] = [];
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          const job = {
+            id: doc.id,
+            ...data,
+            deadline: data.deadline.toDate(),
+            postedAt: data.postedAt.toDate()
+          } as JobListing;
+          
+          // Only show jobs that haven't passed deadline
+          if (job.deadline > new Date()) {
+            jobsData.push(job);
           }
-        ];
+        });
         
-        setJobs(demoJobs);
+        setJobs(jobsData);
+        setLoading(false);
+      });
 
-      setLoading(false);
+      return unsubscribe;
     } catch (error) {
       console.error('Error loading jobs:', error);
       setError('Failed to load jobs');
@@ -447,7 +358,12 @@ const JobBoard: React.FC<JobBoardProps> = ({ onApply, appliedJobs }) => {
           <div className="text-center py-12">
             <Briefcase className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No jobs found</h3>
-            <p className="text-gray-600">Try adjusting your search criteria or check back later for new opportunities.</p>
+            <p className="text-gray-600">
+              {jobs.length === 0 
+                ? "No job opportunities are currently available. Check back later for new positions."
+                : "Try adjusting your search criteria to find more opportunities."
+              }
+            </p>
           </div>
         )}
       </div>
