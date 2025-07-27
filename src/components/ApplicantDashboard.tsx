@@ -138,25 +138,29 @@ const ApplicantDashboard: React.FC = () => {
         where('status', '==', 'active'),
         orderBy('postedAt', 'desc')
       );
-      const querySnapshot = await getDocs(q);
       
-      const jobsData: JobListing[] = [];
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        const job = {
-          id: doc.id,
-          ...data,
-          deadline: data.deadline.toDate(),
-          postedAt: data.postedAt.toDate()
-        } as JobListing;
+      // Use real-time listener for jobs
+      const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const jobsData: JobListing[] = [];
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          const job = {
+            id: doc.id,
+            ...data,
+            deadline: data.deadline.toDate(),
+            postedAt: data.postedAt.toDate()
+          } as JobListing;
+          
+          // Only show jobs that haven't passed deadline and user hasn't applied to
+          if (job.deadline > new Date() && !applications.some(app => app.jobId === job.id)) {
+            jobsData.push(job);
+          }
+        });
         
-        // Only show jobs that haven't passed deadline and user hasn't applied to
-        if (job.deadline > new Date() && !applications.some(app => app.jobId === job.id)) {
-          jobsData.push(job);
-        }
+        setAvailableJobs(jobsData);
       });
-      
-      setAvailableJobs(jobsData);
+
+      return unsubscribe;
     } catch (error) {
       console.error('Error loading jobs:', error);
     }
@@ -500,6 +504,26 @@ const ApplicantDashboard: React.FC = () => {
 
             {/* Available Jobs List */}
             <div className="space-y-4">
+              {availableJobs.length === 0 && (
+                <div className="text-center py-16 bg-white rounded-lg shadow-sm border">
+                  <Briefcase className="w-20 h-20 text-gray-300 mx-auto mb-6" />
+                  <h3 className="text-2xl font-semibold text-gray-900 mb-4">No Available Jobs</h3>
+                  <div className="max-w-md mx-auto space-y-3 text-gray-600">
+                    <p>You have either applied to all available positions or there are no active job postings at the moment.</p>
+                    <p>New opportunities are posted regularly, so please check back soon!</p>
+                    <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+                      <h4 className="font-medium text-blue-900 mb-2">What's Next?</h4>
+                      <ul className="text-sm text-blue-800 space-y-1 text-left">
+                        <li>• Check your application status in the "My Applications" tab</li>
+                        <li>• Follow up on pending applications</li>
+                        <li>• Keep your profile updated</li>
+                        <li>• Check back regularly for new opportunities</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {availableJobs.map((job) => {
                 const daysLeft = Math.ceil((job.deadline.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
                 
@@ -525,8 +549,10 @@ const ApplicantDashboard: React.FC = () => {
                         <p className="text-gray-700 mb-4 line-clamp-2">{job.description}</p>
                       </div>
                       <div className="ml-6 text-right">
-                        <div className={`text-sm font-medium mb-2 ${daysLeft <= 7 ? 'text-red-600' : 'text-gray-600'}`}>
-                          {daysLeft > 0 ? `${daysLeft} days left` : 'Deadline passed'}
+                        <div className={`text-sm font-medium mb-2 ${
+                          daysLeft <= 7 ? 'text-orange-600' : 'text-gray-600'
+                        }`}>
+                          {daysLeft === 1 ? '1 day left' : `${daysLeft} days left`}
                         </div>
                       </div>
                     </div>
@@ -539,24 +565,14 @@ const ApplicantDashboard: React.FC = () => {
                         <button className="px-4 py-2 text-green-600 border border-green-600 rounded-lg hover:bg-green-50 transition-colors">
                           View Details
                         </button>
-                        {daysLeft > 0 && (
-                          <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
-                            Apply Now
-                          </button>
-                        )}
+                        <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+                          Apply Now
+                        </button>
                       </div>
                     </div>
                   </div>
                 );
               })}
-              
-              {availableJobs.length === 0 && (
-                <div className="text-center py-12">
-                  <Briefcase className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No available jobs</h3>
-                  <p className="text-gray-600">Check back later for new opportunities or you may have already applied to all available positions.</p>
-                </div>
-              )}
             </div>
           </div>
         )}

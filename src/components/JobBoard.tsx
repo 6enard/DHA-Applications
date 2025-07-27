@@ -100,10 +100,8 @@ const JobBoard: React.FC<JobBoardProps> = ({ onApply, appliedJobs }) => {
             postedAt: data.postedAt.toDate()
           } as JobListing;
           
-          // Only show jobs that haven't passed deadline
-          if (job.deadline > new Date()) {
-            jobsData.push(job);
-          }
+          // Show all active jobs, we'll handle deadline filtering in the display
+          jobsData.push(job);
         });
         
         setJobs(jobsData);
@@ -179,9 +177,10 @@ const JobBoard: React.FC<JobBoardProps> = ({ onApply, appliedJobs }) => {
     const matchesDepartment = departmentFilter === 'all' || job.department === departmentFilter;
     const matchesType = typeFilter === 'all' || job.type === typeFilter;
     const matchesLocation = locationFilter === 'all' || job.location === locationFilter;
-    const isActive = job.status === 'active' && job.deadline > new Date();
+    const isActive = job.status === 'active';
+    const notExpired = job.deadline > new Date();
     
-    return matchesSearch && matchesDepartment && matchesType && matchesLocation && isActive;
+    return matchesSearch && matchesDepartment && matchesType && matchesLocation && isActive && notExpired;
   });
 
   const uniqueDepartments = Array.from(new Set(jobs.map(job => job.department)));
@@ -278,13 +277,62 @@ const JobBoard: React.FC<JobBoardProps> = ({ onApply, appliedJobs }) => {
         </div>
 
         {/* Job Listings */}
-        <div className="grid gap-6">
+        <div className="space-y-6">
+          {loading && (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
+              <p className="text-gray-600">Loading job opportunities...</p>
+            </div>
+          )}
+
+          {!loading && jobs.length === 0 && (
+            <div className="text-center py-16 bg-white rounded-lg shadow-sm border">
+              <Briefcase className="w-20 h-20 text-gray-300 mx-auto mb-6" />
+              <h3 className="text-2xl font-semibold text-gray-900 mb-4">No Job Opportunities Available</h3>
+              <div className="max-w-md mx-auto space-y-3 text-gray-600">
+                <p>We don't have any active job postings at the moment.</p>
+                <p>New opportunities are posted regularly, so please check back soon!</p>
+                <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+                  <h4 className="font-medium text-blue-900 mb-2">Stay Updated</h4>
+                  <p className="text-sm text-blue-800">
+                    Follow our social media channels or subscribe to our newsletter to be notified when new positions become available.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {!loading && jobs.length > 0 && filteredJobs.length === 0 && (
+            <div className="text-center py-16 bg-white rounded-lg shadow-sm border">
+              <Search className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">No Jobs Match Your Criteria</h3>
+              <p className="text-gray-600 mb-6">
+                Try adjusting your search filters to find more opportunities.
+              </p>
+              <div className="flex justify-center space-x-4">
+                <button
+                  onClick={() => {
+                    setSearchTerm('');
+                    setDepartmentFilter('all');
+                    setTypeFilter('all');
+                    setLocationFilter('all');
+                  }}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  Clear All Filters
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="grid gap-6">
           {filteredJobs.map((job) => {
             const hasApplied = appliedJobs.includes(job.id);
             const daysLeft = Math.ceil((job.deadline.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+            const isExpired = daysLeft <= 0;
             
             return (
-              <div key={job.id} className="bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow">
+              <div key={job.id} className={`bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow ${isExpired ? 'opacity-75' : ''}`}>
                 <div className="flex justify-between items-start mb-4">
                   <div className="flex-1">
                     <h3 className="text-xl font-semibold text-gray-900 mb-2">{job.title}</h3>
@@ -309,12 +357,23 @@ const JobBoard: React.FC<JobBoardProps> = ({ onApply, appliedJobs }) => {
                     <p className="text-gray-700 mb-4 line-clamp-3">{job.description}</p>
                   </div>
                   <div className="ml-6 text-right">
-                    <div className={`text-sm font-medium mb-2 ${daysLeft <= 7 ? 'text-red-600' : 'text-gray-600'}`}>
-                      {daysLeft > 0 ? `${daysLeft} days left` : 'Deadline passed'}
+                    <div className={`text-sm font-medium mb-2 ${
+                      isExpired ? 'text-red-600' : 
+                      daysLeft <= 7 ? 'text-orange-600' : 
+                      'text-gray-600'
+                    }`}>
+                      {isExpired ? 'Application Closed' : 
+                       daysLeft === 1 ? '1 day left' : 
+                       `${daysLeft} days left`}
                     </div>
                     {hasApplied && (
                       <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
                         Applied
+                      </span>
+                    )}
+                    {isExpired && !hasApplied && (
+                      <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
+                        Expired
                       </span>
                     )}
                   </div>
@@ -334,7 +393,7 @@ const JobBoard: React.FC<JobBoardProps> = ({ onApply, appliedJobs }) => {
                     >
                       View Details
                     </button>
-                    {!hasApplied && daysLeft > 0 && (
+                    {!hasApplied && !isExpired && (
                       <button
                         onClick={() => {
                           setSelectedJob(job);
@@ -347,25 +406,21 @@ const JobBoard: React.FC<JobBoardProps> = ({ onApply, appliedJobs }) => {
                         Apply Now
                       </button>
                     )}
+                    {isExpired && (
+                      <button
+                        disabled
+                        className="px-4 py-2 bg-gray-300 text-gray-500 rounded-lg cursor-not-allowed"
+                      >
+                        Application Closed
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
             );
           })}
-        </div>
-
-        {filteredJobs.length === 0 && (
-          <div className="text-center py-12">
-            <Briefcase className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No jobs found</h3>
-            <p className="text-gray-600">
-              {jobs.length === 0 
-                ? "No job opportunities are currently available. Check back later for new positions."
-                : "Try adjusting your search criteria to find more opportunities."
-              }
-            </p>
           </div>
-        )}
+        </div>
       </div>
 
       {/* Job Details Modal */}
@@ -443,7 +498,7 @@ const JobBoard: React.FC<JobBoardProps> = ({ onApply, appliedJobs }) => {
                 >
                   Close
                 </button>
-                {!appliedJobs.includes(selectedJob.id) && (
+                {!appliedJobs.includes(selectedJob.id) && selectedJob.deadline > new Date() && (
                   <button
                     onClick={() => {
                       setShowJobModal(false);
@@ -454,6 +509,14 @@ const JobBoard: React.FC<JobBoardProps> = ({ onApply, appliedJobs }) => {
                     className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
                   >
                     Apply for this Job
+                  </button>
+                )}
+                {selectedJob.deadline <= new Date() && (
+                  <button
+                    disabled
+                    className="px-6 py-2 bg-gray-300 text-gray-500 rounded-lg cursor-not-allowed"
+                  >
+                    Application Closed
                   </button>
                 )}
               </div>
