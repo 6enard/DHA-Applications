@@ -283,8 +283,33 @@ const AdminDashboard: React.FC = () => {
   const loadJobs = () => {
     // Skip Firebase operations for demo users
     if (currentUser?.uid === 'demo-hr-user') {
-      // Use mock data for demo user
-      const mockJobs: JobListing[] = [
+      // For demo purposes, we'll use localStorage to persist jobs across components
+      const getStoredJobs = () => {
+        const stored = localStorage.getItem('dha-demo-jobs');
+        if (stored) {
+          try {
+            const parsedJobs = JSON.parse(stored);
+            return parsedJobs.map((job: any) => ({
+              ...job,
+              deadline: new Date(job.deadline),
+              postedAt: new Date(job.postedAt)
+            }));
+          } catch (error) {
+            console.error('Error parsing stored jobs:', error);
+          }
+        }
+        return null;
+      };
+
+      const storedJobs = getStoredJobs();
+      if (storedJobs && storedJobs.length > 0) {
+        setJobs(storedJobs);
+        setLoading(false);
+        return;
+      }
+
+      // Default demo jobs if none stored
+      const defaultJobs: JobListing[] = [
         {
           id: 'demo-job-1',
           title: 'Senior Health Data Analyst',
@@ -343,7 +368,7 @@ const AdminDashboard: React.FC = () => {
         }
       ];
       
-      setJobs(mockJobs);
+      setJobs(defaultJobs);
       setLoading(false);
       return;
     }
