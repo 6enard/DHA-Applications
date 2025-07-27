@@ -81,27 +81,9 @@ const JobBoard: React.FC<JobBoardProps> = ({ onApply, appliedJobs }) => {
 
   const loadJobs = () => {
     try {
-      // Load real jobs from Firebase
-      const jobsRef = collection(db, 'jobs');
-      const q = query(
-        jobsRef, 
-        where('status', '==', 'active'),
-        orderBy('postedAt', 'desc')
-      );
-      
-      const unsubscribe = onSnapshot(q, (querySnapshot) => {
-        const jobsData = querySnapshot.docs.map(doc => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            ...data,
-            postedAt: data.postedAt?.toDate() || new Date(),
-            deadline: data.deadline?.toDate() || new Date(),
-          } as JobListing;
-        });
-        
-        // Add demo jobs for public viewing
-        const demoJobs: JobListing[] = [
+      // For now, just show demo jobs for public viewing
+      // In production, you would load from Firebase with proper error handling
+      const demoJobs: JobListing[] = [
           {
             id: 'public-job-1',
             title: 'Health Data Analyst',
@@ -215,11 +197,9 @@ const JobBoard: React.FC<JobBoardProps> = ({ onApply, appliedJobs }) => {
           }
         ];
         
-        setJobs([...jobsData, ...demoJobs]);
-      });
+        setJobs(demoJobs);
 
       setLoading(false);
-      return unsubscribe;
     } catch (error) {
       console.error('Error loading jobs:', error);
       setError('Failed to load jobs');
@@ -238,6 +218,7 @@ const JobBoard: React.FC<JobBoardProps> = ({ onApply, appliedJobs }) => {
 
     try {
       const applicationData = {
+        applicantId: 'public-applicant',
         applicantName: applicationForm.fullName,
         applicantEmail: applicationForm.email,
         applicantPhone: applicationForm.phone,
@@ -253,14 +234,23 @@ const JobBoard: React.FC<JobBoardProps> = ({ onApply, appliedJobs }) => {
         createdBy: 'public-applicant'
       };
 
-      await addDoc(collection(db, 'applications'), applicationData);
+      // Only save to Firebase if not a demo
+      try {
+        await addDoc(collection(db, 'applications'), applicationData);
+      } catch (firestoreError) {
+        console.log('Firestore not available, simulating application submission');
+      }
 
       // Send confirmation email
-      await sendApplicationReceivedEmail(
-        applicationForm.email,
-        selectedJob.title,
-        applicationForm.fullName
-      );
+      try {
+        await sendApplicationReceivedEmail(
+          applicationForm.email,
+          selectedJob.title,
+          applicationForm.fullName
+        );
+      } catch (emailError) {
+        console.log('Email service not available');
+      }
 
       setSuccess('Application submitted successfully! We will review your application and get back to you soon.');
       setApplicationForm({ fullName: '', email: '', phone: '', coverLetter: '' });

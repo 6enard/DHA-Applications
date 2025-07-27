@@ -57,24 +57,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const register = async (email: string, password: string, displayName: string, role: string = 'applicant') => {
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    const user = userCredential.user;
-    
-    await updateProfile(user, { displayName });
-    
-    const profile: UserProfile = {
-      uid: user.uid,
-      email: user.email!,
-      displayName,
-      role: role as 'applicant' | 'hr' | 'admin',
-      createdAt: new Date()
-    };
-    
-    await setDoc(doc(db, 'users', user.uid), profile);
-    setUserProfile(profile);
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+      
+      await updateProfile(user, { displayName });
+      
+      const profile: UserProfile = {
+        uid: user.uid,
+        email: user.email!,
+        displayName,
+        role: role as 'applicant' | 'hr' | 'admin',
+        createdAt: new Date()
+      };
+      
+      await setDoc(doc(db, 'users', user.uid), profile);
+      setUserProfile(profile);
+    } catch (error) {
+      console.error('Registration error:', error);
+      throw error;
+    }
   };
 
   const login = async (email: string, password: string) => {
+    try {
     // For demo purposes, handle demo accounts without Firebase
     if (email === 'hr@dha.go.ke' && password === 'hr123456') {
       const mockUser = {
@@ -117,12 +123,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     
     // For real Firebase authentication
-    await signInWithEmailAndPassword(auth, email, password);
+      await signInWithEmailAndPassword(auth, email, password);
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
+    }
   };
 
   const logout = async () => {
-    await signOut(auth);
-    setUserProfile(null);
+    try {
+      // Handle demo users
+      if (currentUser?.uid === 'demo-admin-user' || currentUser?.uid === 'demo-applicant-user') {
+        setCurrentUser(null);
+        setUserProfile(null);
+        return;
+      }
+      
+      await signOut(auth);
+      setUserProfile(null);
+    } catch (error) {
+      console.error('Logout error:', error);
+      throw error;
+    }
   };
 
   useEffect(() => {
