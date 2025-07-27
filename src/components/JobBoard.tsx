@@ -218,7 +218,6 @@ const JobBoard: React.FC<JobBoardProps> = ({ onApply, appliedJobs }) => {
 
     try {
       const applicationData = {
-        applicantId: 'public-applicant',
         applicantName: applicationForm.fullName,
         applicantEmail: applicationForm.email,
         applicantPhone: applicationForm.phone,
@@ -234,23 +233,14 @@ const JobBoard: React.FC<JobBoardProps> = ({ onApply, appliedJobs }) => {
         createdBy: 'public-applicant'
       };
 
-      // Only save to Firebase if not a demo
-      try {
-        await addDoc(collection(db, 'applications'), applicationData);
-      } catch (firestoreError) {
-        console.log('Firestore not available, simulating application submission');
-      }
+      await addDoc(collection(db, 'applications'), applicationData);
 
       // Send confirmation email
-      try {
-        await sendApplicationReceivedEmail(
-          applicationForm.email,
-          selectedJob.title,
-          applicationForm.fullName
-        );
-      } catch (emailError) {
-        console.log('Email service not available');
-      }
+      await sendApplicationReceivedEmail(
+        applicationForm.email,
+        selectedJob.title,
+        applicationForm.fullName
+      );
 
       setSuccess('Application submitted successfully! We will review your application and get back to you soon.');
       setApplicationForm({ fullName: '', email: '', phone: '', coverLetter: '' });
