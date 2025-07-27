@@ -5,6 +5,7 @@ import Login from './components/Login';
 import Register from './components/Register';
 import AdminDashboard from './components/AdminDashboard';
 import ApplicantDashboard from './components/ApplicantDashboard';
+import JobBoard from './components/JobBoard';
 
 const AuthModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
   const [isLogin, setIsLogin] = useState(true);
@@ -33,6 +34,50 @@ const AuthModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen,
 };
 
 const LandingPage: React.FC<{ onOpenAuth: () => void }> = ({ onOpenAuth }) => {
+  const [showJobBoard, setShowJobBoard] = useState(false);
+  const [appliedJobs, setAppliedJobs] = useState<string[]>([]);
+
+  const handleApply = (jobId: string) => {
+    setAppliedJobs(prev => [...prev, jobId]);
+  };
+
+  if (showJobBoard) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        {/* Header */}
+        <header className="bg-white shadow-sm">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center py-4">
+              <div className="flex items-center">
+                <Shield className="w-8 h-8 text-green-600 mr-3" />
+                <div>
+                  <h1 className="text-xl font-bold text-gray-900">Digital Health Agency</h1>
+                  <p className="text-sm text-gray-600">Republic of Kenya</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-4">
+                <button
+                  onClick={() => setShowJobBoard(false)}
+                  className="text-gray-600 hover:text-gray-900 transition-colors"
+                >
+                  Back to Home
+                </button>
+                <button
+                  onClick={onOpenAuth}
+                  className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  Sign In / Register
+                </button>
+              </div>
+            </div>
+          </div>
+        </header>
+        
+        <JobBoard onApply={handleApply} appliedJobs={appliedJobs} />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50">
       {/* Header */}
@@ -75,7 +120,11 @@ const LandingPage: React.FC<{ onOpenAuth: () => void }> = ({ onOpenAuth }) => {
               Apply for Jobs
             </button>
             <button className="border-2 border-green-600 text-green-600 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-green-50 transition-colors">
-              Learn More
+            <button 
+              onClick={() => setShowJobBoard(true)}
+              className="border-2 border-green-600 text-green-600 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-green-50 transition-colors"
+            >
+              Browse Jobs
             </button>
           </div>
         </div>
