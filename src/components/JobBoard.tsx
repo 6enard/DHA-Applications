@@ -83,25 +83,23 @@ const JobBoard: React.FC<JobBoardProps> = ({ onApply, appliedJobs }) => {
     try {
       setLoading(true);
       const jobsRef = collection(db, 'jobs');
-      const q = query(
-        jobsRef, 
-        where('status', '==', 'active'),
-        orderBy('postedAt', 'desc')
-      );
+      const q = query(jobsRef, orderBy('postedAt', 'desc'));
       
       const unsubscribe = onSnapshot(q, (querySnapshot) => {
         const jobsData: JobListing[] = [];
         querySnapshot.forEach((doc) => {
           const data = doc.data();
-          const job = {
-            id: doc.id,
-            ...data,
-            deadline: data.deadline.toDate(),
-            postedAt: data.postedAt.toDate()
-          } as JobListing;
-          
-          // Show all active jobs, we'll handle deadline filtering in the display
-          jobsData.push(job);
+          // Only include active jobs
+          if (data.status === 'active') {
+            const job = {
+              id: doc.id,
+              ...data,
+              deadline: data.deadline.toDate(),
+              postedAt: data.postedAt.toDate()
+            } as JobListing;
+            
+            jobsData.push(job);
+          }
         });
         
         setJobs(jobsData);
