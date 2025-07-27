@@ -283,33 +283,8 @@ const AdminDashboard: React.FC = () => {
   const loadJobs = () => {
     // Skip Firebase operations for demo users
     if (currentUser?.uid === 'demo-hr-user') {
-      // For demo purposes, we'll use localStorage to persist jobs across components
-      const getStoredJobs = () => {
-        const stored = localStorage.getItem('dha-demo-jobs');
-        if (stored) {
-          try {
-            const parsedJobs = JSON.parse(stored);
-            return parsedJobs.map((job: any) => ({
-              ...job,
-              deadline: new Date(job.deadline),
-              postedAt: new Date(job.postedAt)
-            }));
-          } catch (error) {
-            console.error('Error parsing stored jobs:', error);
-          }
-        }
-        return null;
-      };
-
-      const storedJobs = getStoredJobs();
-      if (storedJobs && storedJobs.length > 0) {
-        setJobs(storedJobs);
-        setLoading(false);
-        return;
-      }
-
-      // Default demo jobs if none stored
-      const defaultJobs: JobListing[] = [
+      // Use mock data for demo user
+      const mockJobs: JobListing[] = [
         {
           id: 'demo-job-1',
           title: 'Senior Health Data Analyst',
@@ -368,7 +343,7 @@ const AdminDashboard: React.FC = () => {
         }
       ];
       
-      setJobs(defaultJobs);
+      setJobs(mockJobs);
       setLoading(false);
       return;
     }
@@ -478,6 +453,10 @@ const AdminDashboard: React.FC = () => {
     if (currentUser?.uid === 'demo-hr-user') {
       // Add the new job to the local jobs state
       setJobs(prev => [newJob, ...prev]);
+      
+      // Also update localStorage so it persists across components
+      const updatedJobs = [newJob, ...jobs];
+      localStorage.setItem('dha-demo-jobs', JSON.stringify(updatedJobs));
       
       setSuccess('Job posted successfully! (Demo mode)');
       setShowCreateJobModal(false);
