@@ -22,7 +22,11 @@ import {
   Star,
   AlertCircle,
   LogOut,
-  Shield
+  Shield,
+  Save,
+  Building,
+  DollarSign,
+  Briefcase
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { 
@@ -35,7 +39,9 @@ import {
   where, 
   orderBy, 
   onSnapshot,
-  serverTimestamp
+  serverTimestamp,
+  addDoc,
+  setDoc
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 
@@ -67,8 +73,14 @@ interface JobListing {
   department: string;
   location: string;
   type: 'full-time' | 'part-time' | 'contract';
+  salary: string;
+  description: string;
+  requirements: string[];
+  responsibilities: string[];
+  benefits: string[];
   status: 'active' | 'closed' | 'draft';
   deadline: Date;
+  postedAt: Date;
   applicationsCount: number;
 }
 
@@ -80,6 +92,10 @@ const AdminDashboard: React.FC = () => {
   const [selectedApplication, setSelectedApplication] = useState<Application | null>(null);
   const [showApplicationModal, setShowApplicationModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showJobModal, setShowJobModal] = useState(false);
+  const [showCreateJobModal, setShowCreateJobModal] = useState(false);
+  const [selectedJob, setSelectedJob] = useState<JobListing | null>(null);
+  const [editingJob, setEditingJob] = useState<Partial<JobListing>>({});
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [stageFilter, setStageFilter] = useState<string>('all');
@@ -187,8 +203,26 @@ const AdminDashboard: React.FC = () => {
           department: 'Data & Analytics',
           location: 'Nairobi',
           type: 'full-time',
+          salary: 'KES 80,000 - 120,000',
+          description: 'We are seeking a skilled Health Data Analyst to join our team and help transform Kenya\'s healthcare system through data-driven insights.',
+          requirements: [
+            'Bachelor\'s degree in Statistics, Mathematics, Computer Science, or related field',
+            'Minimum 2 years of experience in data analysis',
+            'Proficiency in SQL, Python, or R'
+          ],
+          responsibilities: [
+            'Analyze healthcare data to identify trends and patterns',
+            'Create comprehensive reports and dashboards',
+            'Collaborate with healthcare professionals'
+          ],
+          benefits: [
+            'Competitive salary and benefits package',
+            'Health insurance coverage',
+            'Professional development opportunities'
+          ],
           status: 'active',
           deadline: new Date('2024-02-15'),
+          postedAt: new Date('2024-01-01'),
           applicationsCount: 12
         },
         {
@@ -197,8 +231,26 @@ const AdminDashboard: React.FC = () => {
           department: 'Digital Health',
           location: 'Kisumu',
           type: 'full-time',
+          salary: 'KES 90,000 - 140,000',
+          description: 'Join our Digital Health team to lead the implementation of innovative health technology solutions across Kenya.',
+          requirements: [
+            'Master\'s degree in Public Health, Health Informatics, or related field',
+            'Minimum 3 years of experience in digital health',
+            'Knowledge of health information systems'
+          ],
+          responsibilities: [
+            'Lead digital health project implementation',
+            'Coordinate with healthcare facilities and stakeholders',
+            'Provide technical assistance and training'
+          ],
+          benefits: [
+            'Competitive salary and comprehensive benefits',
+            'Travel allowances for field work',
+            'Professional development and training'
+          ],
           status: 'active',
           deadline: new Date('2024-02-20'),
+          postedAt: new Date('2024-01-05'),
           applicationsCount: 8
         },
         {
@@ -207,8 +259,26 @@ const AdminDashboard: React.FC = () => {
           department: 'Health Systems',
           location: 'Mombasa',
           type: 'full-time',
+          salary: 'KES 70,000 - 100,000',
+          description: 'We are looking for a Health Systems Coordinator to support the strengthening of health systems in coastal Kenya.',
+          requirements: [
+            'Bachelor\'s degree in Public Health, Medicine, or related field',
+            'Minimum 2 years of experience in health systems',
+            'Knowledge of Kenyan health system structure'
+          ],
+          responsibilities: [
+            'Coordinate health systems strengthening activities',
+            'Support county health teams in planning',
+            'Facilitate stakeholder meetings and workshops'
+          ],
+          benefits: [
+            'Competitive salary package',
+            'Health insurance for employee and family',
+            'Transportation allowance'
+          ],
           status: 'closed',
           deadline: new Date('2024-02-10'),
+          postedAt: new Date('2023-12-20'),
           applicationsCount: 15
         }
       ];
@@ -377,6 +447,87 @@ const AdminDashboard: React.FC = () => {
     } catch (error) {
       console.error('Error updating score:', error);
       setError('Failed to update score. Please try again.');
+    }
+  };
+
+  const handleCreateJob = async () => {
+    try {
+      const newJob: Omit<JobListing, 'id' | 'applicationsCount'> = {
+        title: editingJob.title || '',
+        department: editingJob.department || '',
+        location: editingJob.location || '',
+        type: editingJob.type || 'full-time',
+        salary: editingJob.salary || '',
+        description: editingJob.description || '',
+        requirements: editingJob.requirements || [],
+        responsibilities: editingJob.responsibilities || [],
+        benefits: editingJob.benefits || [],
+        status: editingJob.status || 'draft',
+        deadline: editingJob.deadline || new Date(),
+        postedAt: new Date()
+      };
+
+      // In real implementation, save to Firebase
+      const jobId = `job-${Date.now()}`;
+      const jobWithId = { ...newJob, id: jobId, applicationsCount: 0 };
+      
+      setJobs(prev => [jobWithId, ...prev]);
+      setShowCreateJobModal(false);
+      setEditingJob({});
+      
+    } catch (error) {
+      console.error('Error creating job:', error);
+      setError('Failed to create job. Please try again.');
+    }
+  };
+
+  const handleUpdateJob = async (jobId: string) => {
+    try {
+      setJobs(prev => prev.map(job => 
+        job.id === jobId 
+          ? { ...job, ...editingJob }
+          : job
+      ));
+      
+      setShowJobModal(false);
+      setEditingJob({});
+      
+    } catch (error) {
+      console.error('Error updating job:', error);
+      setError('Failed to update job. Please try again.');
+    }
+  };
+
+  const handleDeleteJob = async (jobId: string) => {
+    if (!window.confirm('Are you sure you want to delete this job? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      setJobs(prev => prev.filter(job => job.id !== jobId));
+      
+    } catch (error) {
+      console.error('Error deleting job:', error);
+      setError('Failed to delete job. Please try again.');
+    }
+  };
+
+  const handleBulkStatusUpdate = async (applicationIds: string[], newStatus: Application['status']) => {
+    try {
+      setApplications(prev => prev.map(app => 
+        applicationIds.includes(app.id)
+          ? { 
+              ...app, 
+              status: newStatus, 
+              lastUpdated: new Date(), 
+              reviewedBy: userProfile?.displayName || 'Admin'
+            }
+          : app
+      ));
+      
+    } catch (error) {
+      console.error('Error updating applications:', error);
+      setError('Failed to update applications. Please try again.');
     }
   };
 
@@ -829,7 +980,25 @@ const AdminDashboard: React.FC = () => {
           <div className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-bold text-gray-900">Job Listings</h2>
-              <button className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center">
+              <button 
+                onClick={() => {
+                  setEditingJob({
+                    title: '',
+                    department: '',
+                    location: '',
+                    type: 'full-time',
+                    salary: '',
+                    description: '',
+                    requirements: [],
+                    responsibilities: [],
+                    benefits: [],
+                    status: 'draft',
+                    deadline: new Date()
+                  });
+                  setShowCreateJobModal(true);
+                }}
+                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center"
+              >
                 <Plus className="w-4 h-4 mr-2" />
                 Create New Job
               </button>
@@ -842,11 +1011,30 @@ const AdminDashboard: React.FC = () => {
                     <div>
                       <h3 className="text-xl font-semibold text-gray-900 mb-2">{job.title}</h3>
                       <div className="flex items-center space-x-4 text-sm text-gray-600">
-                        <span>{job.department}</span>
-                        <span>{job.location}</span>
-                        <span className="capitalize">{job.type}</span>
-                        <span>Deadline: {job.deadline.toLocaleDateString()}</span>
+                        <div className="flex items-center">
+                          <Building className="w-4 h-4 mr-1" />
+                          {job.department}
+                        </div>
+                        <div className="flex items-center">
+                          <MapPin className="w-4 h-4 mr-1" />
+                          {job.location}
+                        </div>
+                        <div className="flex items-center">
+                          <Briefcase className="w-4 h-4 mr-1" />
+                          {job.type.replace('-', ' ')}
+                        </div>
+                        <div className="flex items-center">
+                          <DollarSign className="w-4 h-4 mr-1" />
+                          {job.salary}
+                        </div>
+                        <div className="flex items-center">
+                          <Calendar className="w-4 h-4 mr-1" />
+                          Deadline: {job.deadline.toLocaleDateString()}
+                        </div>
                       </div>
+                      {job.description && (
+                        <p className="text-gray-700 mt-3 line-clamp-2">{job.description}</p>
+                      )}
                     </div>
                     <div className="flex items-center space-x-2">
                       <span className={`px-3 py-1 text-sm font-medium rounded-full ${
@@ -864,10 +1052,33 @@ const AdminDashboard: React.FC = () => {
                       {job.applicationsCount} applications received
                     </div>
                     <div className="flex space-x-2">
-                      <button className="text-blue-600 hover:text-blue-900">
+                      <button 
+                        onClick={() => {
+                          setSelectedJob(job);
+                          setEditingJob(job);
+                          setShowJobModal(true);
+                        }}
+                        className="text-green-600 hover:text-green-900"
+                        title="View/Edit"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button 
+                        onClick={() => {
+                          setSelectedJob(job);
+                          setEditingJob(job);
+                          setShowJobModal(true);
+                        }}
+                        className="text-blue-600 hover:text-blue-900"
+                        title="Edit"
+                      >
                         <Edit className="w-4 h-4" />
                       </button>
-                      <button className="text-red-600 hover:text-red-900">
+                      <button 
+                        onClick={() => handleDeleteJob(job.id)}
+                        className="text-red-600 hover:text-red-900"
+                        title="Delete"
+                      >
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -1047,6 +1258,351 @@ const AdminDashboard: React.FC = () => {
                 </button>
                 <button className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
                   Save Changes
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Job Details/Edit Modal */}
+      {showJobModal && selectedJob && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b">
+              <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold text-gray-900">Edit Job: {selectedJob.title}</h2>
+                <button
+                  onClick={() => {
+                    setShowJobModal(false);
+                    setEditingJob({});
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <XCircle className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Job Title</label>
+                  <input
+                    type="text"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    value={editingJob.title || ''}
+                    onChange={(e) => setEditingJob({...editingJob, title: e.target.value})}
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Department</label>
+                  <select
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    value={editingJob.department || ''}
+                    onChange={(e) => setEditingJob({...editingJob, department: e.target.value})}
+                  >
+                    <option value="">Select Department</option>
+                    <option value="Data & Analytics">Data & Analytics</option>
+                    <option value="Digital Health">Digital Health</option>
+                    <option value="Health Systems">Health Systems</option>
+                    <option value="Health Information Systems">Health Information Systems</option>
+                    <option value="Public Health">Public Health</option>
+                    <option value="Information Technology">Information Technology</option>
+                    <option value="Communications">Communications</option>
+                    <option value="Research & Development">Research & Development</option>
+                    <option value="Finance & Administration">Finance & Administration</option>
+                    <option value="Clinical Research">Clinical Research</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
+                  <input
+                    type="text"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    value={editingJob.location || ''}
+                    onChange={(e) => setEditingJob({...editingJob, location: e.target.value})}
+                    placeholder="e.g., Nairobi, Kisumu, Mombasa"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Job Type</label>
+                  <select
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    value={editingJob.type || 'full-time'}
+                    onChange={(e) => setEditingJob({...editingJob, type: e.target.value as 'full-time' | 'part-time' | 'contract'})}
+                  >
+                    <option value="full-time">Full Time</option>
+                    <option value="part-time">Part Time</option>
+                    <option value="contract">Contract</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Salary Range</label>
+                  <input
+                    type="text"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    value={editingJob.salary || ''}
+                    onChange={(e) => setEditingJob({...editingJob, salary: e.target.value})}
+                    placeholder="e.g., KES 80,000 - 120,000"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                  <select
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    value={editingJob.status || 'draft'}
+                    onChange={(e) => setEditingJob({...editingJob, status: e.target.value as 'active' | 'closed' | 'draft'})}
+                  >
+                    <option value="draft">Draft</option>
+                    <option value="active">Active</option>
+                    <option value="closed">Closed</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Application Deadline</label>
+                  <input
+                    type="date"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    value={editingJob.deadline ? editingJob.deadline.toISOString().split('T')[0] : ''}
+                    onChange={(e) => setEditingJob({...editingJob, deadline: new Date(e.target.value)})}
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Job Description</label>
+                <textarea
+                  rows={4}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  value={editingJob.description || ''}
+                  onChange={(e) => setEditingJob({...editingJob, description: e.target.value})}
+                  placeholder="Describe the role and what the candidate will be doing..."
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Requirements</label>
+                <textarea
+                  rows={4}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  value={editingJob.requirements?.join('\n') || ''}
+                  onChange={(e) => setEditingJob({...editingJob, requirements: e.target.value.split('\n').filter(r => r.trim())})}
+                  placeholder="Enter each requirement on a new line..."
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Responsibilities</label>
+                <textarea
+                  rows={4}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  value={editingJob.responsibilities?.join('\n') || ''}
+                  onChange={(e) => setEditingJob({...editingJob, responsibilities: e.target.value.split('\n').filter(r => r.trim())})}
+                  placeholder="Enter each responsibility on a new line..."
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Benefits</label>
+                <textarea
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  value={editingJob.benefits?.join('\n') || ''}
+                  onChange={(e) => setEditingJob({...editingJob, benefits: e.target.value.split('\n').filter(b => b.trim())})}
+                  placeholder="Enter each benefit on a new line..."
+                />
+              </div>
+              
+              <div className="flex justify-end space-x-4">
+                <button
+                  onClick={() => {
+                    setShowJobModal(false);
+                    setEditingJob({});
+                  }}
+                  className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleUpdateJob(selectedJob.id)}
+                  className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center"
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  Save Changes
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Job Modal */}
+      {showCreateJobModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b">
+              <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold text-gray-900">Create New Job</h2>
+                <button
+                  onClick={() => {
+                    setShowCreateJobModal(false);
+                    setEditingJob({});
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <XCircle className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Job Title *</label>
+                  <input
+                    type="text"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    value={editingJob.title || ''}
+                    onChange={(e) => setEditingJob({...editingJob, title: e.target.value})}
+                    placeholder="e.g., Health Data Analyst"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Department *</label>
+                  <select
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    value={editingJob.department || ''}
+                    onChange={(e) => setEditingJob({...editingJob, department: e.target.value})}
+                  >
+                    <option value="">Select Department</option>
+                    <option value="Data & Analytics">Data & Analytics</option>
+                    <option value="Digital Health">Digital Health</option>
+                    <option value="Health Systems">Health Systems</option>
+                    <option value="Health Information Systems">Health Information Systems</option>
+                    <option value="Public Health">Public Health</option>
+                    <option value="Information Technology">Information Technology</option>
+                    <option value="Communications">Communications</option>
+                    <option value="Research & Development">Research & Development</option>
+                    <option value="Finance & Administration">Finance & Administration</option>
+                    <option value="Clinical Research">Clinical Research</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Location *</label>
+                  <input
+                    type="text"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    value={editingJob.location || ''}
+                    onChange={(e) => setEditingJob({...editingJob, location: e.target.value})}
+                    placeholder="e.g., Nairobi, Kisumu, Mombasa"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Job Type</label>
+                  <select
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    value={editingJob.type || 'full-time'}
+                    onChange={(e) => setEditingJob({...editingJob, type: e.target.value as 'full-time' | 'part-time' | 'contract'})}
+                  >
+                    <option value="full-time">Full Time</option>
+                    <option value="part-time">Part Time</option>
+                    <option value="contract">Contract</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Salary Range</label>
+                  <input
+                    type="text"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    value={editingJob.salary || ''}
+                    onChange={(e) => setEditingJob({...editingJob, salary: e.target.value})}
+                    placeholder="e.g., KES 80,000 - 120,000"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Application Deadline *</label>
+                  <input
+                    type="date"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    value={editingJob.deadline ? editingJob.deadline.toISOString().split('T')[0] : ''}
+                    onChange={(e) => setEditingJob({...editingJob, deadline: new Date(e.target.value)})}
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Job Description *</label>
+                <textarea
+                  rows={4}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  value={editingJob.description || ''}
+                  onChange={(e) => setEditingJob({...editingJob, description: e.target.value})}
+                  placeholder="Describe the role and what the candidate will be doing..."
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Requirements</label>
+                <textarea
+                  rows={4}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  value={editingJob.requirements?.join('\n') || ''}
+                  onChange={(e) => setEditingJob({...editingJob, requirements: e.target.value.split('\n').filter(r => r.trim())})}
+                  placeholder="Enter each requirement on a new line..."
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Responsibilities</label>
+                <textarea
+                  rows={4}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  value={editingJob.responsibilities?.join('\n') || ''}
+                  onChange={(e) => setEditingJob({...editingJob, responsibilities: e.target.value.split('\n').filter(r => r.trim())})}
+                  placeholder="Enter each responsibility on a new line..."
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Benefits</label>
+                <textarea
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  value={editingJob.benefits?.join('\n') || ''}
+                  onChange={(e) => setEditingJob({...editingJob, benefits: e.target.value.split('\n').filter(b => b.trim())})}
+                  placeholder="Enter each benefit on a new line..."
+                />
+              </div>
+              
+              <div className="flex justify-end space-x-4">
+                <button
+                  onClick={() => {
+                    setShowCreateJobModal(false);
+                    setEditingJob({});
+                  }}
+                  className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCreateJob}
+                  disabled={!editingJob.title || !editingJob.department || !editingJob.location || !editingJob.description}
+                  className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Job
                 </button>
               </div>
             </div>
