@@ -18,15 +18,16 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'hr'];
     }
     
-    // Applications - Allow public creation, but restrict read/update access
+    // Applications - Allow creation by anyone, restrict read/update access
     match /applications/{applicationId} {
       // Allow anyone to create applications (for public job applications)
       allow create: if true;
       
-      // Allow applicants to read their own applications (by email match)
+      // Allow applicants to read their own applications (by applicantId or email match)
       // Allow admin/hr to read all applications
       allow read: if request.auth != null && 
-        (request.auth.email == resource.data.applicantEmail || 
+        (request.auth.uid == resource.data.applicantId || 
+         request.auth.email == resource.data.applicantEmail || 
          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'hr']));
       

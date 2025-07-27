@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useEmailNotifications } from './EmailNotificationService';
 import FileUploadService from './FileUploadService';
+import { useAuth } from '../contexts/AuthContext';
 import { 
   collection, 
   addDoc, 
@@ -53,6 +54,7 @@ interface JobBoardProps {
 
 const JobBoard: React.FC<JobBoardProps> = ({ onApply, appliedJobs }) => {
   const { sendApplicationReceivedEmail } = useEmailNotifications();
+  const { currentUser, userProfile } = useAuth();
   const [jobs, setJobs] = useState<JobListing[]>([]);
   const [selectedJob, setSelectedJob] = useState<JobListing | null>(null);
   const [showJobModal, setShowJobModal] = useState(false);
@@ -78,6 +80,17 @@ const JobBoard: React.FC<JobBoardProps> = ({ onApply, appliedJobs }) => {
   useEffect(() => {
     loadJobs();
   }, []);
+
+  // Pre-fill form with user data if signed in
+  useEffect(() => {
+    if (currentUser && userProfile && showApplicationModal) {
+      setApplicationForm(prev => ({
+        ...prev,
+        fullName: prev.fullName || userProfile.displayName || '',
+        email: prev.email || currentUser.email || ''
+      }));
+    }
+  }, [currentUser, userProfile, showApplicationModal]);
 
   const loadJobs = async () => {
     try {
@@ -137,7 +150,8 @@ const JobBoard: React.FC<JobBoardProps> = ({ onApply, appliedJobs }) => {
         lastUpdated: serverTimestamp(),
         coverLetter: applicationForm.coverLetter.trim(),
         notes: '',
-        createdBy: 'public-applicant'
+        createdBy: currentUser?.uid || 'public-applicant',
+        applicantId: currentUser?.uid || null
       };
 
       await addDoc(collection(db, 'applications'), applicationData);
@@ -158,7 +172,7 @@ const JobBoard: React.FC<JobBoardProps> = ({ onApply, appliedJobs }) => {
       setTimeout(() => setSuccess(''), 5000);
     } catch (error) {
       console.error('Error submitting application:', error);
-      setError('Failed to submit application. Please try again.');
+      setError(`Failed to submit application: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`);
     } finally {
       setSubmitting(false);
     }

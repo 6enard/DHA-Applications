@@ -151,8 +151,8 @@ const ApplicantDashboard: React.FC = () => {
             postedAt: data.postedAt.toDate()
           } as JobListing;
           
-          // Only show jobs that haven't passed deadline and user hasn't applied to
-          if (job.deadline > new Date() && !applications.some(app => app.jobId === job.id)) {
+          // Only show jobs that haven't passed deadline
+          if (job.deadline > new Date()) {
             jobsData.push(job);
           }
         });
