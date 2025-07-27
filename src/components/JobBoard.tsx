@@ -12,8 +12,11 @@ import {
   Send, 
   CheckCircle, 
   AlertCircle,
-  X
+  X,
+  Upload
 } from 'lucide-react';
+import { useEmailNotifications } from './EmailNotificationService';
+import FileUploadService from './FileUploadService';
 import { 
   collection, 
   addDoc, 
@@ -49,6 +52,7 @@ interface JobBoardProps {
 }
 
 const JobBoard: React.FC<JobBoardProps> = ({ onApply, appliedJobs }) => {
+  const { sendApplicationReceivedEmail } = useEmailNotifications();
   const [jobs, setJobs] = useState<JobListing[]>([]);
   const [selectedJob, setSelectedJob] = useState<JobListing | null>(null);
   const [showJobModal, setShowJobModal] = useState(false);
@@ -61,6 +65,7 @@ const JobBoard: React.FC<JobBoardProps> = ({ onApply, appliedJobs }) => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   
   // Application form state
   const [applicationForm, setApplicationForm] = useState({
@@ -250,8 +255,16 @@ const JobBoard: React.FC<JobBoardProps> = ({ onApply, appliedJobs }) => {
 
       await addDoc(collection(db, 'applications'), applicationData);
 
+      // Send confirmation email
+      await sendApplicationReceivedEmail(
+        applicationForm.email,
+        selectedJob.title,
+        applicationForm.fullName
+      );
+
       setSuccess('Application submitted successfully! We will review your application and get back to you soon.');
       setApplicationForm({ fullName: '', email: '', phone: '', coverLetter: '' });
+      setUploadedFiles([]);
       setShowApplicationModal(false);
       onApply(selectedJob.id);
       
@@ -262,6 +275,10 @@ const JobBoard: React.FC<JobBoardProps> = ({ onApply, appliedJobs }) => {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleFileUpload = (files: File[]) => {
+    setUploadedFiles(files);
   };
 
   const filteredJobs = jobs.filter(job => {
@@ -626,6 +643,15 @@ const JobBoard: React.FC<JobBoardProps> = ({ onApply, appliedJobs }) => {
                     {applicationForm.coverLetter.length}/1000 characters
                   </p>
                 </div>
+                
+                <FileUploadService
+                  onFileUpload={handleFileUpload}
+                  acceptedTypes={['.pdf', '.doc', '.docx']}
+                  maxFileSize={5}
+                  maxFiles={3}
+                  label="Supporting Documents"
+                  description="Upload your resume, cover letter, certificates, and other relevant documents"
+                />
                 
                 <div className="bg-blue-50 p-4 rounded-lg">
                   <h4 className="font-medium text-blue-900 mb-2">Application Information</h4>

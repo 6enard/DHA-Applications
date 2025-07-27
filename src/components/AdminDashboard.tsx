@@ -26,6 +26,7 @@ import {
   X
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useEmailNotifications } from './EmailNotificationService';
 import { 
   collection, 
   addDoc, 
@@ -79,6 +80,7 @@ interface Application {
 
 const AdminDashboard: React.FC = () => {
   const { currentUser, userProfile, logout } = useAuth();
+  const { sendStatusUpdateEmail, sendJobPostedNotification } = useEmailNotifications();
   const [activeTab, setActiveTab] = useState<'overview' | 'jobs' | 'applications' | 'analytics'>('overview');
   const [jobs, setJobs] = useState<JobListing[]>([]);
   const [applications, setApplications] = useState<Application[]>([]);
@@ -319,6 +321,9 @@ const AdminDashboard: React.FC = () => {
       // Skip Firebase for demo user
       if (currentUser?.uid !== 'demo-admin-user') {
         await addDoc(collection(db, 'jobs'), jobData);
+        
+        // Send job posted notification
+        await sendJobPostedNotification(jobForm.title, jobForm.department);
       }
 
       setSuccess('Job posted successfully!');
@@ -390,6 +395,9 @@ const AdminDashboard: React.FC = () => {
 
   const handleUpdateApplicationStatus = async (applicationId: string, newStatus: Application['status'], notes?: string) => {
     try {
+      // Find the application to get applicant details
+      const application = applications.find(app => app.id === applicationId);
+      
       const updateData = {
         status: newStatus,
         lastUpdated: serverTimestamp(),
@@ -399,6 +407,16 @@ const AdminDashboard: React.FC = () => {
       // Skip Firebase for demo user
       if (currentUser?.uid !== 'demo-admin-user') {
         await updateDoc(doc(db, 'applications', applicationId), updateData);
+        
+        // Send status update email
+        if (application) {
+          await sendStatusUpdateEmail(
+            application.applicantEmail,
+            application.jobTitle,
+            application.applicantName,
+            newStatus
+          );
+        }
       }
 
       setSuccess('Application status updated successfully!');

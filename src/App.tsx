@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Shield, Users, FileText, Calendar, Mail, Phone, MapPin } from 'lucide-react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { EmailNotificationProvider } from './components/EmailNotificationService';
 import Login from './components/Login';
 import Register from './components/Register';
 import AdminDashboard from './components/AdminDashboard';
@@ -251,7 +252,9 @@ const AppContent: React.FC = () => {
 const App: React.FC = () => {
   return (
     <AuthProvider>
-      <AppContent />
+      <EmailNotificationProvider>
+        <AppContent />
+      </EmailNotificationProvider>
     </AuthProvider>
   );
 };

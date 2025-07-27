@@ -16,9 +16,12 @@ import {
   Filter,
   Building,
   DollarSign,
-  AlertCircle
+  AlertCircle,
+  Upload
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useEmailNotifications } from './EmailNotificationService';
+import FileUploadService from './FileUploadService';
 import { 
   collection, 
   addDoc, 
@@ -59,6 +62,7 @@ interface Application {
 
 const ApplicantDashboard: React.FC = () => {
   const { currentUser, userProfile, logout } = useAuth();
+  const { sendApplicationReceivedEmail } = useEmailNotifications();
   const [activeTab, setActiveTab] = useState<'jobs' | 'applications'>('jobs');
   const [jobs, setJobs] = useState<JobListing[]>([]);
   const [applications, setApplications] = useState<Application[]>([]);
@@ -73,6 +77,7 @@ const ApplicantDashboard: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
 
   useEffect(() => {
     loadJobs();
@@ -541,6 +546,13 @@ const ApplicantDashboard: React.FC = () => {
       // Skip Firebase for demo user
       if (currentUser.uid !== 'demo-applicant-user') {
         await addDoc(collection(db, 'applications'), applicationData);
+        
+        // Send confirmation email
+        await sendApplicationReceivedEmail(
+          currentUser.email!,
+          selectedJob.title,
+          userProfile?.displayName || 'Applicant'
+        );
       }
 
       setSuccess('Application submitted successfully!');
@@ -557,6 +569,10 @@ const ApplicantDashboard: React.FC = () => {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleFileUpload = (files: File[]) => {
+    setUploadedFiles(files);
   };
 
   const getStatusColor = (status: Application['status']) => {
@@ -983,6 +999,15 @@ const ApplicantDashboard: React.FC = () => {
                   {coverLetter.length}/1000 characters
                 </p>
               </div>
+              
+              <FileUploadService
+                onFileUpload={handleFileUpload}
+                acceptedTypes={['.pdf', '.doc', '.docx']}
+                maxFileSize={5}
+                maxFiles={3}
+                label="Supporting Documents"
+                description="Upload your resume, cover letter, certificates, and other relevant documents"
+              />
               
               <div className="bg-blue-50 p-4 rounded-lg mb-6">
                 <h4 className="font-medium text-blue-900 mb-2">Application Information</h4>
