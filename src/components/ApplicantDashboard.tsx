@@ -19,16 +19,22 @@ import {
   Send,
   AlertCircle,
   Download,
-  Edit
+  Edit,
+  X,
+  DollarSign
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useEmailNotifications } from './EmailNotificationService';
+import FileUploadService from './FileUploadService';
 import { 
   collection, 
   query, 
   where, 
   getDocs, 
   orderBy, 
-  onSnapshot 
+  onSnapshot,
+  addDoc,
+  serverTimestamp
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 
@@ -68,13 +74,28 @@ interface JobListing {
 
 const ApplicantDashboard: React.FC = () => {
   const { currentUser, userProfile, logout } = useAuth();
+  const { sendApplicationReceivedEmail } = useEmailNotifications();
   const [activeTab, setActiveTab] = useState<'overview' | 'applications' | 'jobs' | 'profile'>('overview');
   const [applications, setApplications] = useState<Application[]>([]);
   const [availableJobs, setAvailableJobs] = useState<JobListing[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [selectedJob, setSelectedJob] = useState<JobListing | null>(null);
+  const [showJobModal, setShowJobModal] = useState(false);
+  const [showApplicationModal, setShowApplicationModal] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  
+  // Application form state
+  const [applicationForm, setApplicationForm] = useState({
+    fullName: '',
+    email: '',
+    phone: '',
+    coverLetter: ''
+  });
 
   useEffect(() => {
     loadData();
@@ -166,6 +187,73 @@ const ApplicantDashboard: React.FC = () => {
     }
   };
 
+  const handleApplyForJob = async () => {
+    if (!selectedJob || !applicationForm.fullName || !applicationForm.email || !applicationForm.coverLetter) {
+      setError('Please fill in all required fields');
+      return;
+    }
+
+    setSubmitting(true);
+    setError('');
+
+    try {
+      const applicationData = {
+        applicantName: applicationForm.fullName,
+        applicantEmail: applicationForm.email,
+        applicantPhone: applicationForm.phone,
+        jobId: selectedJob.id,
+        jobTitle: selectedJob.title,
+        department: selectedJob.department,
+        status: 'submitted',
+        stage: 'initial-review',
+        submittedAt: serverTimestamp(),
+        lastUpdated: serverTimestamp(),
+        coverLetter: applicationForm.coverLetter.trim(),
+        notes: '',
+        createdBy: currentUser?.uid || 'public-applicant',
+        applicantId: currentUser?.uid || null
+      };
+
+      await addDoc(collection(db, 'applications'), applicationData);
+
+      // Send confirmation email
+      await sendApplicationReceivedEmail(
+        applicationForm.email,
+        selectedJob.title,
+        applicationForm.fullName
+      );
+
+      setSuccess('Application submitted successfully! We will review your application and get back to you soon.');
+      setApplicationForm({ fullName: '', email: '', phone: '', coverLetter: '' });
+      setUploadedFiles([]);
+      setShowApplicationModal(false);
+      
+      // Reload applications to show the new one
+      await loadApplications();
+      
+      setTimeout(() => setSuccess(''), 5000);
+    } catch (error) {
+      console.error('Error submitting application:', error);
+      setError(`Failed to submit application: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleFileUpload = (files: File[]) => {
+    setUploadedFiles(files);
+  };
+
+  // Pre-fill form with user data if signed in
+  useEffect(() => {
+    if (currentUser && userProfile && showApplicationModal) {
+      setApplicationForm(prev => ({
+        ...prev,
+        fullName: prev.fullName || userProfile.displayName || '',
+        email: prev.email || currentUser.email || ''
+      }));
+    }
+  }, [currentUser, userProfile, showApplicationModal]);
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'hired':
@@ -272,6 +360,17 @@ const ApplicantDashboard: React.FC = () => {
         </div>
       )}
 
+      {/* Success Message */}
+      {success && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+          <div className="p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg">
+            <div className="flex items-center">
+              <CheckCircle className="w-5 h-5 mr-2" />
+              {success}
+            </div>
+          </div>
+        </div>
+      )}
       {/* Navigation Tabs */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
         <div className="border-b border-gray-200">
@@ -526,6 +625,7 @@ const ApplicantDashboard: React.FC = () => {
 
               {availableJobs.map((job) => {
                 const daysLeft = Math.ceil((job.deadline.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                const hasApplied = applications.some(app => app.jobId === job.id);
                 
                 return (
                   <div key={job.id} className="bg-white rounded-lg shadow-sm border p-6">
@@ -545,6 +645,10 @@ const ApplicantDashboard: React.FC = () => {
                             <Briefcase className="w-4 h-4 mr-1" />
                             {job.type.replace('-', ' ')}
                           </div>
+                          <div className="flex items-center">
+                            <DollarSign className="w-4 h-4 mr-1" />
+                            {job.salary}
+                          </div>
                         </div>
                         <p className="text-gray-700 mb-4 line-clamp-2">{job.description}</p>
                       </div>
@@ -554,6 +658,11 @@ const ApplicantDashboard: React.FC = () => {
                         }`}>
                           {daysLeft === 1 ? '1 day left' : `${daysLeft} days left`}
                         </div>
+                        {hasApplied && (
+                          <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                            Applied
+                          </span>
+                        )}
                       </div>
                     </div>
                     
@@ -562,12 +671,35 @@ const ApplicantDashboard: React.FC = () => {
                         Posted: {job.postedAt.toLocaleDateString()} | Deadline: {job.deadline.toLocaleDateString()}
                       </div>
                       <div className="flex space-x-3">
-                        <button className="px-4 py-2 text-green-600 border border-green-600 rounded-lg hover:bg-green-50 transition-colors">
+                        <button
+                          onClick={() => {
+                            setSelectedJob(job);
+                            setShowJobModal(true);
+                          }}
+                          className="px-4 py-2 text-green-600 border border-green-600 rounded-lg hover:bg-green-50 transition-colors"
+                        >
                           View Details
                         </button>
-                        <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
-                          Apply Now
-                        </button>
+                        {!hasApplied ? (
+                          <button
+                            onClick={() => {
+                              setSelectedJob(job);
+                              setShowApplicationModal(true);
+                              setApplicationForm({ fullName: '', email: '', phone: '', coverLetter: '' });
+                              setError('');
+                            }}
+                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                          >
+                            Apply Now
+                          </button>
+                        ) : (
+                          <button
+                            disabled
+                            className="px-4 py-2 bg-gray-300 text-gray-500 rounded-lg cursor-not-allowed"
+                          >
+                            Already Applied
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -660,6 +792,230 @@ const ApplicantDashboard: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Job Details Modal */}
+      {showJobModal && selectedJob && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b">
+              <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold text-gray-900">{selectedJob.title}</h2>
+                <button
+                  onClick={() => setShowJobModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              <div className="flex items-center space-x-4 text-sm text-gray-600 mt-2">
+                <span>{selectedJob.department}</span>
+                <span>{selectedJob.location}</span>
+                <span className="capitalize">{selectedJob.type}</span>
+                <span>{selectedJob.salary}</span>
+              </div>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-3">Job Description</h3>
+                <p className="text-gray-700">{selectedJob.description}</p>
+              </div>
+              
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-3">Requirements</h3>
+                <ul className="list-disc list-inside space-y-2 text-gray-700">
+                  {selectedJob.requirements.map((req, index) => (
+                    <li key={index}>{req}</li>
+                  ))}
+                </ul>
+              </div>
+              
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-3">Responsibilities</h3>
+                <ul className="list-disc list-inside space-y-2 text-gray-700">
+                  {selectedJob.responsibilities.map((resp, index) => (
+                    <li key={index}>{resp}</li>
+                  ))}
+                </ul>
+              </div>
+              
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-3">Benefits</h3>
+                <ul className="list-disc list-inside space-y-2 text-gray-700">
+                  {selectedJob.benefits.map((benefit, index) => (
+                    <li key={index}>{benefit}</li>
+                  ))}
+                </ul>
+              </div>
+              
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <p className="font-medium text-gray-900">Application Deadline</p>
+                    <p className="text-gray-600">{selectedJob.deadline.toLocaleDateString()}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-medium text-gray-900">Posted</p>
+                    <p className="text-gray-600">{selectedJob.postedAt.toLocaleDateString()}</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex justify-end space-x-4">
+                <button
+                  onClick={() => setShowJobModal(false)}
+                  className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Close
+                </button>
+                {!applications.some(app => app.jobId === selectedJob.id) && (
+                  <button
+                    onClick={() => {
+                      setShowJobModal(false);
+                      setShowApplicationModal(true);
+                      setApplicationForm({ fullName: '', email: '', phone: '', coverLetter: '' });
+                      setError('');
+                    }}
+                    className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    Apply for this Job
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Application Modal */}
+      {showApplicationModal && selectedJob && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b">
+              <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold text-gray-900">Apply for {selectedJob.title}</h2>
+                <button
+                  onClick={() => setShowApplicationModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+            
+            <div className="p-6">
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                handleApplyForJob();
+              }} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Full Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      value={applicationForm.fullName}
+                      onChange={(e) => setApplicationForm(prev => ({ ...prev, fullName: e.target.value }))}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Email Address *
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      value={applicationForm.email}
+                      onChange={(e) => setApplicationForm(prev => ({ ...prev, email: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    value={applicationForm.phone}
+                    onChange={(e) => setApplicationForm(prev => ({ ...prev, phone: e.target.value }))}
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Cover Letter *
+                  </label>
+                  <textarea
+                    rows={8}
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    placeholder="Tell us why you're interested in this position and how your skills and experience make you a great fit..."
+                    value={applicationForm.coverLetter}
+                    onChange={(e) => setApplicationForm(prev => ({ ...prev, coverLetter: e.target.value }))}
+                  />
+                  <p className="text-sm text-gray-500 mt-2">
+                    {applicationForm.coverLetter.length}/1000 characters
+                  </p>
+                </div>
+                
+                <FileUploadService
+                  onFileUpload={handleFileUpload}
+                  acceptedTypes={['.pdf', '.doc', '.docx']}
+                  maxFileSize={5}
+                  maxFiles={3}
+                  label="Supporting Documents"
+                  description="Upload your resume, cover letter, certificates, and other relevant documents"
+                />
+                
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <h4 className="font-medium text-blue-900 mb-2">Application Information</h4>
+                  <div className="text-sm text-blue-800 space-y-1">
+                    <p>Position: {selectedJob.title}</p>
+                    <p>Department: {selectedJob.department}</p>
+                    <p>Location: {selectedJob.location}</p>
+                    <p>Application Deadline: {selectedJob.deadline.toLocaleDateString()}</p>
+                  </div>
+                </div>
+                
+                <div className="flex justify-end space-x-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowApplicationModal(false)}
+                    className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                    disabled={submitting}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submitting || !applicationForm.fullName || !applicationForm.email || !applicationForm.coverLetter}
+                    className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                  >
+                    {submitting ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        Submitting...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4 mr-2" />
+                        Submit Application
+                      </button>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
