@@ -226,6 +226,222 @@ const ApplicantDashboard: React.FC = () => {
         status: 'active',
         postedAt: new Date('2024-01-10')
       }
+      {
+        id: 'job5',
+        title: 'Public Health Officer',
+        department: 'Public Health',
+        location: 'Eldoret',
+        type: 'full-time',
+        salary: 'KES 60,000 - 85,000',
+        description: 'Join our Public Health team to support community health programs and disease prevention initiatives across Uasin Gishu County. You will work directly with communities to improve health outcomes.',
+        requirements: [
+          'Bachelor\'s degree in Public Health, Community Health, or related field',
+          'Minimum 1 year of experience in public health programs',
+          'Knowledge of community health strategies',
+          'Experience in health education and promotion',
+          'Strong communication and interpersonal skills',
+          'Ability to work in rural and urban settings'
+        ],
+        responsibilities: [
+          'Implement community health programs',
+          'Conduct health education sessions',
+          'Support disease surveillance activities',
+          'Collaborate with community health volunteers',
+          'Monitor and evaluate program effectiveness',
+          'Prepare reports and documentation'
+        ],
+        benefits: [
+          'Competitive salary and allowances',
+          'Health insurance coverage',
+          'Field work allowances',
+          'Training and capacity building',
+          'Career growth opportunities',
+          'Leave benefits'
+        ],
+        deadline: new Date('2024-03-01'),
+        status: 'active',
+        postedAt: new Date('2024-01-15')
+      },
+      {
+        id: 'job6',
+        title: 'Software Developer',
+        department: 'Information Technology',
+        location: 'Nairobi',
+        type: 'full-time',
+        salary: 'KES 120,000 - 180,000',
+        description: 'We are looking for a talented Software Developer to join our IT team and help build innovative digital health solutions. You will work on web applications, mobile apps, and system integrations.',
+        requirements: [
+          'Bachelor\'s degree in Computer Science, Software Engineering, or related field',
+          'Minimum 3 years of experience in software development',
+          'Proficiency in JavaScript, React, Node.js, and databases',
+          'Experience with cloud platforms (AWS, Azure, or GCP)',
+          'Knowledge of healthcare standards (HL7, FHIR) is a plus',
+          'Strong problem-solving and debugging skills'
+        ],
+        responsibilities: [
+          'Develop and maintain web applications and APIs',
+          'Collaborate with cross-functional teams on product development',
+          'Write clean, maintainable, and well-documented code',
+          'Participate in code reviews and testing',
+          'Troubleshoot and resolve technical issues',
+          'Stay updated with latest technology trends'
+        ],
+        benefits: [
+          'Competitive salary and performance bonuses',
+          'Comprehensive health insurance',
+          'Professional development budget',
+          'Flexible working hours and remote work options',
+          'Modern development tools and equipment',
+          'Stock options and retirement benefits'
+        ],
+        deadline: new Date('2024-02-28'),
+        status: 'active',
+        postedAt: new Date('2024-01-08')
+      },
+      {
+        id: 'job7',
+        title: 'Health Communication Specialist',
+        department: 'Communications',
+        location: 'Nairobi',
+        type: 'part-time',
+        salary: 'KES 45,000 - 65,000',
+        description: 'Support our communications team in developing and implementing health communication strategies. This part-time position is perfect for someone looking to make an impact in health advocacy.',
+        requirements: [
+          'Bachelor\'s degree in Communications, Journalism, Public Relations, or related field',
+          'Minimum 2 years of experience in health communication or related field',
+          'Excellent writing and editing skills',
+          'Experience with social media management',
+          'Knowledge of health topics and terminology',
+          'Creative thinking and attention to detail'
+        ],
+        responsibilities: [
+          'Develop health communication materials and campaigns',
+          'Manage social media accounts and content',
+          'Write press releases and media advisories',
+          'Support event planning and coordination',
+          'Monitor media coverage and public sentiment',
+          'Collaborate with health experts on content creation'
+        ],
+        benefits: [
+          'Flexible part-time schedule',
+          'Competitive hourly rate',
+          'Health insurance contribution',
+          'Professional development opportunities',
+          'Work-from-home options',
+          'Networking opportunities in health sector'
+        ],
+        deadline: new Date('2024-02-18'),
+        status: 'active',
+        postedAt: new Date('2024-01-12')
+      },
+      {
+        id: 'job8',
+        title: 'Research Assistant',
+        department: 'Research & Development',
+        location: 'Kisumu',
+        type: 'contract',
+        salary: 'KES 55,000 - 75,000',
+        description: 'Join our research team to support ongoing health research projects. This 6-month contract position offers excellent experience in health research methodologies and data collection.',
+        requirements: [
+          'Bachelor\'s degree in Public Health, Statistics, Social Sciences, or related field',
+          'Experience in research methodology and data collection',
+          'Proficiency in statistical software (SPSS, R, or Stata)',
+          'Strong analytical and writing skills',
+          'Attention to detail and accuracy',
+          'Ability to work independently and meet deadlines'
+        ],
+        responsibilities: [
+          'Assist in research design and protocol development',
+          'Conduct literature reviews and data collection',
+          'Perform statistical analysis and data interpretation',
+          'Prepare research reports and presentations',
+          'Support manuscript preparation for publication',
+          'Maintain research databases and documentation'
+        ],
+        benefits: [
+          'Competitive contract compensation',
+          'Research experience and mentorship',
+          'Publication opportunities',
+          'Conference attendance support',
+          'Networking with research community',
+          'Potential for contract extension'
+        ],
+        deadline: new Date('2024-02-22'),
+        status: 'active',
+        postedAt: new Date('2024-01-18')
+      },
+      {
+        id: 'job9',
+        title: 'Health Finance Analyst',
+        department: 'Finance & Administration',
+        location: 'Nairobi',
+        type: 'full-time',
+        salary: 'KES 85,000 - 125,000',
+        description: 'We are seeking a Health Finance Analyst to support financial planning and analysis for our health programs. You will work on budget development, financial monitoring, and cost-effectiveness analysis.',
+        requirements: [
+          'Bachelor\'s degree in Finance, Economics, Accounting, or related field',
+          'Minimum 3 years of experience in financial analysis',
+          'Knowledge of health economics and financing',
+          'Proficiency in Excel, financial modeling, and analysis tools',
+          'Understanding of donor funding and grant management',
+          'Strong quantitative and analytical skills'
+        ],
+        responsibilities: [
+          'Develop and monitor program budgets and financial plans',
+          'Conduct cost-effectiveness and financial impact analysis',
+          'Prepare financial reports for donors and stakeholders',
+          'Support grant proposal development and management',
+          'Monitor expenditures and ensure compliance',
+          'Provide financial insights for decision-making'
+        ],
+        benefits: [
+          'Competitive salary and annual increments',
+          'Comprehensive health and life insurance',
+          'Professional certification support (CPA, CFA)',
+          'Performance-based bonuses',
+          'Retirement savings plan',
+          'Professional development opportunities'
+        ],
+        deadline: new Date('2024-03-05'),
+        status: 'active',
+        postedAt: new Date('2024-01-20')
+      },
+      {
+        id: 'job10',
+        title: 'Clinical Data Manager',
+        department: 'Clinical Research',
+        location: 'Mombasa',
+        type: 'full-time',
+        salary: 'KES 95,000 - 135,000',
+        description: 'Lead clinical data management activities for our research studies. You will ensure data quality, integrity, and compliance with regulatory standards in clinical research.',
+        requirements: [
+          'Bachelor\'s degree in Life Sciences, Statistics, or related field',
+          'Minimum 4 years of experience in clinical data management',
+          'Knowledge of GCP, ICH guidelines, and regulatory requirements',
+          'Experience with clinical data management systems (CDMS)',
+          'Strong attention to detail and quality focus',
+          'Excellent organizational and project management skills'
+        ],
+        responsibilities: [
+          'Design and maintain clinical databases',
+          'Develop data management plans and procedures',
+          'Monitor data quality and perform data cleaning',
+          'Ensure compliance with regulatory standards',
+          'Train and supervise data entry staff',
+          'Prepare data for statistical analysis and reporting'
+        ],
+        benefits: [
+          'Competitive salary and benefits package',
+          'Health insurance for family',
+          'Professional development and training',
+          'Conference attendance opportunities',
+          'Flexible working arrangements',
+          'Career advancement in clinical research'
+        ],
+        deadline: new Date('2024-02-12'),
+        status: 'active',
+        postedAt: new Date('2024-01-03')
+      }
     ];
 
     setJobs(mockJobs);
