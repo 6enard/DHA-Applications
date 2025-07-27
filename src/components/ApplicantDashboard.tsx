@@ -85,8 +85,37 @@ const ApplicantDashboard: React.FC = () => {
   }, [currentUser]);
 
   const loadJobs = () => {
-    // Mock job data - in real implementation, load from Firebase
-    const mockJobs: JobListing[] = [
+    // For demo purposes, we'll use a shared jobs state
+    // In a real implementation, this would load from Firebase
+    const getStoredJobs = () => {
+      const stored = localStorage.getItem('dha-demo-jobs');
+      if (stored) {
+        try {
+          const parsedJobs = JSON.parse(stored);
+          return parsedJobs.map((job: any) => ({
+            ...job,
+            deadline: new Date(job.deadline),
+            postedAt: new Date(job.postedAt)
+          }));
+        } catch (error) {
+          console.error('Error parsing stored jobs:', error);
+        }
+      }
+      return null;
+    };
+
+    const storedJobs = getStoredJobs();
+        setJobs(defaultJobs);
+        
+        // Store default jobs in localStorage for demo consistency
+        localStorage.setItem('dha-demo-jobs', JSON.stringify(defaultJobs));
+      setJobs(storedJobs);
+      setLoading(false);
+      return;
+    }
+
+    // Default mock job data
+    const defaultJobs: JobListing[] = [
       {
         id: 'job1',
         title: 'Health Data Analyst',

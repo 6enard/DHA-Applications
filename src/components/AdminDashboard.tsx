@@ -451,6 +451,9 @@ const AdminDashboard: React.FC = () => {
 
     // Skip Firebase operations for demo users
     if (currentUser?.uid === 'demo-hr-user') {
+      // Add the new job to the local jobs state
+      setJobs(prev => [newJob, ...prev]);
+      
       setSuccess('Job posted successfully! (Demo mode)');
       setShowCreateJobModal(false);
       resetJobForm();
