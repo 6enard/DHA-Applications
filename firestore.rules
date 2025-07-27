@@ -18,21 +18,28 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'hr'];
     }
     
-    // Applications are readable by applicant and admin/hr, writable by applicant and updatable by admin/hr
+    // Applications - Allow public creation, but restrict read/update access
     match /applications/{applicationId} {
+      // Allow anyone to create applications (for public job applications)
+      allow create: if true;
+      
+      // Allow applicants to read their own applications (by email match)
+      // Allow admin/hr to read all applications
       allow read: if request.auth != null && 
         (request.auth.email == resource.data.applicantEmail || 
          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'hr']));
-      allow create: if request.auth != null;
+      
+      // Only admin/hr can update applications
       allow update: if request.auth != null && 
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'hr'];
     }
     
-    // Email notifications are writable by authenticated users
+    // Email notifications - Allow anyone to create (for application confirmations)
+    // Allow admin/hr to read and update
     match /email_notifications/{notificationId} {
-      allow create: if request.auth != null;
+      allow create: if true;
       allow read, update: if request.auth != null && 
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'hr'];
