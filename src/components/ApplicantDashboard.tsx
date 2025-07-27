@@ -456,6 +456,31 @@ const ApplicantDashboard: React.FC = () => {
   const loadApplications = async () => {
     if (!currentUser) return;
 
+    // Skip Firebase operations for demo users
+    if (currentUser.uid === 'demo-applicant-user') {
+      const demoApplications: Application[] = [
+        {
+          id: 'demo-app-1',
+          jobId: 'job1',
+          jobTitle: 'Health Data Analyst',
+          department: 'Data & Analytics',
+          status: 'under-review',
+          submittedAt: new Date('2024-01-15'),
+          coverLetter: 'I am excited to apply for the Health Data Analyst position. With my background in statistics and healthcare data analysis, I believe I can contribute significantly to Kenya\'s digital health transformation.'
+        },
+        {
+          id: 'demo-app-2',
+          jobId: 'job2',
+          jobTitle: 'Digital Health Specialist',
+          department: 'Digital Health',
+          status: 'shortlisted',
+          submittedAt: new Date('2024-01-12'),
+          coverLetter: 'As a passionate advocate for digital health solutions, I believe I would be an excellent fit for this role. My experience in implementing health technology systems aligns perfectly with DHA\'s mission.'
+        }
+      ];
+      setApplications(demoApplications);
+      return;
+    }
     try {
       // Load real applications from Firebase
       const applicationsRef = collection(db, 'applications');
@@ -475,32 +500,7 @@ const ApplicantDashboard: React.FC = () => {
           } as Application;
         });
         
-        // Add demo applications for demo user
-        if (currentUser.uid === 'demo-applicant-user') {
-          const demoApplications: Application[] = [
-            {
-              id: 'demo-app-1',
-              jobId: 'job1',
-              jobTitle: 'Health Data Analyst',
-              department: 'Data & Analytics',
-              status: 'under-review',
-              submittedAt: new Date('2024-01-15'),
-              coverLetter: 'I am excited to apply for the Health Data Analyst position. With my background in statistics and healthcare data analysis, I believe I can contribute significantly to Kenya\'s digital health transformation.'
-            },
-            {
-              id: 'demo-app-2',
-              jobId: 'job2',
-              jobTitle: 'Digital Health Specialist',
-              department: 'Digital Health',
-              status: 'shortlisted',
-              submittedAt: new Date('2024-01-12'),
-              coverLetter: 'As a passionate advocate for digital health solutions, I believe I would be an excellent fit for this role. My experience in implementing health technology systems aligns perfectly with DHA\'s mission.'
-            }
-          ];
-          setApplications([...applicationsData, ...demoApplications]);
-        } else {
-          setApplications(applicationsData);
-        }
+        setApplications(applicationsData);
       });
 
       return unsubscribe;
@@ -525,6 +525,31 @@ const ApplicantDashboard: React.FC = () => {
     setSubmitting(true);
     setError('');
 
+    // Skip Firebase operations for demo users
+    if (currentUser.uid === 'demo-applicant-user') {
+      // Simulate successful application for demo
+      setTimeout(() => {
+        setSuccess('Application submitted successfully! (Demo mode)');
+        setCoverLetter('');
+        setShowApplicationModal(false);
+        
+        // Add to local applications state
+        const newApplication: Application = {
+          id: `demo-app-${Date.now()}`,
+          jobId: selectedJob.id,
+          jobTitle: selectedJob.title,
+          department: selectedJob.department,
+          status: 'submitted',
+          submittedAt: new Date(),
+          coverLetter: coverLetter.trim()
+        };
+        setApplications(prev => [newApplication, ...prev]);
+        
+        setSubmitting(false);
+        setTimeout(() => setSuccess(''), 5000);
+      }, 1000);
+      return;
+    }
     try {
       const applicationData = {
         applicantId: currentUser.uid,
@@ -543,17 +568,14 @@ const ApplicantDashboard: React.FC = () => {
         createdBy: currentUser.uid
       };
 
-      // Skip Firebase for demo user
-      if (currentUser.uid !== 'demo-applicant-user') {
-        await addDoc(collection(db, 'applications'), applicationData);
-        
-        // Send confirmation email
-        await sendApplicationReceivedEmail(
-          currentUser.email!,
-          selectedJob.title,
-          userProfile?.displayName || 'Applicant'
-        );
-      }
+      await addDoc(collection(db, 'applications'), applicationData);
+      
+      // Send confirmation email
+      await sendApplicationReceivedEmail(
+        currentUser.email!,
+        selectedJob.title,
+        userProfile?.displayName || 'Applicant'
+      );
 
       setSuccess('Application submitted successfully!');
       setCoverLetter('');

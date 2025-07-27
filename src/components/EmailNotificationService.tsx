@@ -44,7 +44,8 @@ export const EmailNotificationProvider: React.FC<{ children: React.ReactNode }> 
   
   useEffect(() => {
     // Only listen for email notifications if user has admin or hr role
-    if (userProfile && (userProfile.role === 'admin' || userProfile.role === 'hr')) {
+    // Skip Firebase operations for demo users
+    if (userProfile && (userProfile.role === 'admin' || userProfile.role === 'hr') && userProfile.uid !== 'demo-hr-user') {
       // Listen for pending email notifications and process them
       const emailsRef = collection(db, 'email_notifications');
       const q = query(emailsRef, where('status', '==', 'pending'));
@@ -86,6 +87,16 @@ export const EmailNotificationProvider: React.FC<{ children: React.ReactNode }> 
   }, [userProfile]);
 
   const sendApplicationReceivedEmail = async (applicantEmail: string, jobTitle: string, applicantName: string) => {
+    // Skip Firebase operations for demo users
+    if (applicantEmail.includes('demo') || applicantName.includes('Demo')) {
+      console.log('📧 Demo Email Notification (Application Received):', {
+        to: applicantEmail,
+        subject: `Application Received - ${jobTitle}`,
+        applicantName
+      });
+      return;
+    }
+    
     const emailData: Omit<EmailNotification, 'id'> = {
       to: applicantEmail,
       subject: `Application Received - ${jobTitle}`,
@@ -130,6 +141,16 @@ export const EmailNotificationProvider: React.FC<{ children: React.ReactNode }> 
   };
 
   const sendStatusUpdateEmail = async (applicantEmail: string, jobTitle: string, applicantName: string, newStatus: string) => {
+    // Skip Firebase operations for demo users
+    if (applicantEmail.includes('demo') || applicantName.includes('Demo')) {
+      console.log('📧 Demo Email Notification (Status Update):', {
+        to: applicantEmail,
+        subject: `Application Status Update - ${jobTitle}`,
+        newStatus
+      });
+      return;
+    }
+    
     const statusMessages = {
       'under-review': 'Your application is currently under review by our HR team.',
       'shortlisted': 'Congratulations! You have been shortlisted for the next round of our selection process.',
@@ -192,6 +213,16 @@ export const EmailNotificationProvider: React.FC<{ children: React.ReactNode }> 
   };
 
   const sendInterviewScheduledEmail = async (applicantEmail: string, jobTitle: string, applicantName: string, interviewDate: string) => {
+    // Skip Firebase operations for demo users
+    if (applicantEmail.includes('demo') || applicantName.includes('Demo')) {
+      console.log('📧 Demo Email Notification (Interview Scheduled):', {
+        to: applicantEmail,
+        subject: `Interview Scheduled - ${jobTitle}`,
+        interviewDate
+      });
+      return;
+    }
+    
     const emailData: Omit<EmailNotification, 'id'> = {
       to: applicantEmail,
       subject: `Interview Scheduled - ${jobTitle}`,

@@ -112,12 +112,23 @@ const AdminDashboard: React.FC = () => {
   });
 
   useEffect(() => {
+    // Skip Firebase operations for demo users
+    if (currentUser?.uid === 'demo-hr-user') {
+      setLoading(false);
+      return;
+    }
+    
     loadJobs();
     loadApplications();
     createExampleJobs();
   }, []);
 
   const createExampleJobs = async () => {
+    // Skip Firebase operations for demo users
+    if (currentUser?.uid === 'demo-hr-user') {
+      return;
+    }
+    
     try {
       // Check if example jobs already exist
       const jobsRef = collection(db, 'jobs');
@@ -270,6 +281,73 @@ const AdminDashboard: React.FC = () => {
   };
 
   const loadJobs = () => {
+    // Skip Firebase operations for demo users
+    if (currentUser?.uid === 'demo-hr-user') {
+      // Use mock data for demo user
+      const mockJobs: JobListing[] = [
+        {
+          id: 'demo-job-1',
+          title: 'Senior Health Data Analyst',
+          department: 'Data & Analytics',
+          location: 'Nairobi',
+          type: 'full-time',
+          salary: 'KES 120,000 - 180,000',
+          description: 'We are seeking an experienced Senior Health Data Analyst to lead our data analytics initiatives and help transform Kenya\'s healthcare system through advanced data-driven insights.',
+          requirements: [
+            'Master\'s degree in Statistics, Data Science, Public Health, or related field',
+            'Minimum 5 years of experience in health data analysis',
+            'Advanced proficiency in SQL, Python, R, and statistical software'
+          ],
+          responsibilities: [
+            'Lead complex health data analysis projects and initiatives',
+            'Develop and implement predictive models for health outcomes',
+            'Design and maintain comprehensive health dashboards and reports'
+          ],
+          benefits: [
+            'Competitive salary with performance-based bonuses',
+            'Comprehensive health insurance for employee and family',
+            'Professional development budget and conference attendance'
+          ],
+          deadline: new Date('2024-03-15'),
+          status: 'active',
+          postedAt: new Date(),
+          createdBy: 'demo-hr-user'
+        },
+        {
+          id: 'demo-job-2',
+          title: 'Digital Health Implementation Specialist',
+          department: 'Digital Health',
+          location: 'Kisumu',
+          type: 'full-time',
+          salary: 'KES 100,000 - 150,000',
+          description: 'Join our Digital Health team as an Implementation Specialist to lead the deployment of innovative health technology solutions across western Kenya.',
+          requirements: [
+            'Bachelor\'s degree in Public Health, Health Informatics, IT, or related field',
+            'Minimum 3 years of experience in digital health or health technology implementation',
+            'Strong knowledge of health information systems and interoperability standards'
+          ],
+          responsibilities: [
+            'Lead end-to-end implementation of digital health solutions',
+            'Coordinate with healthcare facilities and county health teams',
+            'Provide comprehensive training and technical assistance to users'
+          ],
+          benefits: [
+            'Competitive salary and comprehensive benefits package',
+            'Travel allowances and field work compensation',
+            'Professional development and certification opportunities'
+          ],
+          deadline: new Date('2024-03-20'),
+          status: 'active',
+          postedAt: new Date(),
+          createdBy: 'demo-hr-user'
+        }
+      ];
+      
+      setJobs(mockJobs);
+      setLoading(false);
+      return;
+    }
+    
     try {
       const jobsRef = collection(db, 'jobs');
       const q = query(jobsRef, orderBy('postedAt', 'desc'));
@@ -297,6 +375,50 @@ const AdminDashboard: React.FC = () => {
   };
 
   const loadApplications = () => {
+    // Skip Firebase operations for demo users
+    if (currentUser?.uid === 'demo-hr-user') {
+      // Use mock data for demo user
+      const mockApplications: Application[] = [
+        {
+          id: 'demo-app-1',
+          applicantId: 'demo-applicant-user',
+          applicantName: 'John Doe',
+          applicantEmail: 'john.doe@example.com',
+          applicantPhone: '+254 700 123 456',
+          jobId: 'demo-job-1',
+          jobTitle: 'Senior Health Data Analyst',
+          department: 'Data & Analytics',
+          status: 'under-review',
+          stage: 'technical-review',
+          submittedAt: new Date('2024-01-15'),
+          lastUpdated: new Date('2024-01-16'),
+          coverLetter: 'I am excited to apply for the Senior Health Data Analyst position. With my background in statistics and healthcare data analysis, I believe I can contribute significantly to Kenya\'s digital health transformation.',
+          notes: '',
+          createdBy: 'demo-applicant-user'
+        },
+        {
+          id: 'demo-app-2',
+          applicantId: 'demo-applicant-user-2',
+          applicantName: 'Jane Smith',
+          applicantEmail: 'jane.smith@example.com',
+          applicantPhone: '+254 700 987 654',
+          jobId: 'demo-job-2',
+          jobTitle: 'Digital Health Implementation Specialist',
+          department: 'Digital Health',
+          status: 'shortlisted',
+          stage: 'interview-preparation',
+          submittedAt: new Date('2024-01-12'),
+          lastUpdated: new Date('2024-01-18'),
+          coverLetter: 'As a passionate advocate for digital health solutions, I believe I would be an excellent fit for this role. My experience in implementing health technology systems aligns perfectly with DHA\'s mission.',
+          notes: 'Strong technical background, excellent communication skills',
+          createdBy: 'demo-applicant-user-2'
+        }
+      ];
+      
+      setApplications(mockApplications);
+      return;
+    }
+    
     try {
       const applicationsRef = collection(db, 'applications');
       const q = query(applicationsRef, orderBy('submittedAt', 'desc'));
@@ -327,6 +449,15 @@ const AdminDashboard: React.FC = () => {
       return;
     }
 
+    // Skip Firebase operations for demo users
+    if (currentUser?.uid === 'demo-hr-user') {
+      setSuccess('Job posted successfully! (Demo mode)');
+      setShowCreateJobModal(false);
+      resetJobForm();
+      setTimeout(() => setSuccess(''), 5000);
+      return;
+    }
+
     try {
       const jobData = {
         ...jobForm,
@@ -352,6 +483,19 @@ const AdminDashboard: React.FC = () => {
   };
 
   const handleUpdateApplicationStatus = async (applicationId: string, newStatus: Application['status']) => {
+    // Skip Firebase operations for demo users
+    if (currentUser?.uid === 'demo-hr-user') {
+      // Update local state for demo
+      setApplications(prev => prev.map(app => 
+        app.id === applicationId 
+          ? { ...app, status: newStatus, lastUpdated: new Date() }
+          : app
+      ));
+      setSuccess('Application status updated successfully! (Demo mode)');
+      setTimeout(() => setSuccess(''), 5000);
+      return;
+    }
+    
     try {
       const applicationRef = doc(db, 'applications', applicationId);
       await updateDoc(applicationRef, {
