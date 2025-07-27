@@ -8,6 +8,7 @@ import {
   serverTimestamp 
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
+import { useAuth } from '../contexts/AuthContext';
 
 interface EmailNotification {
   id: string;
@@ -39,46 +40,50 @@ export const useEmailNotifications = () => {
 };
 
 export const EmailNotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { userProfile } = useAuth();
   
   useEffect(() => {
-    // Listen for pending email notifications and process them
-    const emailsRef = collection(db, 'email_notifications');
-    const q = query(emailsRef, where('status', '==', 'pending'));
-    
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      querySnapshot.docs.forEach(async (doc) => {
-        const emailData = doc.data() as EmailNotification;
-        
-        // In a real implementation, you would integrate with an email service like:
-        // - SendGrid
-        // - AWS SES
-        // - Mailgun
-        // - Firebase Functions with Nodemailer
-        
-        // For demo purposes, we'll just log the email and mark it as sent
-        console.log('📧 Email Notification:', {
-          to: emailData.to,
-          subject: emailData.subject,
-          body: emailData.body,
-          type: emailData.type
+    // Only listen for email notifications if user has admin or hr role
+    if (userProfile && (userProfile.role === 'admin' || userProfile.role === 'hr')) {
+      // Listen for pending email notifications and process them
+      const emailsRef = collection(db, 'email_notifications');
+      const q = query(emailsRef, where('status', '==', 'pending'));
+      
+      const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        querySnapshot.docs.forEach(async (doc) => {
+          const emailData = doc.data() as EmailNotification;
+          
+          // In a real implementation, you would integrate with an email service like:
+          // - SendGrid
+          // - AWS SES
+          // - Mailgun
+          // - Firebase Functions with Nodemailer
+          
+          // For demo purposes, we'll just log the email and mark it as sent
+          console.log('📧 Email Notification:', {
+            to: emailData.to,
+            subject: emailData.subject,
+            body: emailData.body,
+            type: emailData.type
+          });
+          
+          // Simulate email sending delay
+          setTimeout(async () => {
+            try {
+              // Update email status to sent
+              // In real implementation: await updateDoc(doc.ref, { status: 'sent', sentAt: serverTimestamp() });
+              console.log('✅ Email sent successfully to:', emailData.to);
+            } catch (error) {
+              console.error('❌ Failed to send email:', error);
+              // In real implementation: await updateDoc(doc.ref, { status: 'failed' });
+            }
+          }, 1000);
         });
-        
-        // Simulate email sending delay
-        setTimeout(async () => {
-          try {
-            // Update email status to sent
-            // In real implementation: await updateDoc(doc.ref, { status: 'sent', sentAt: serverTimestamp() });
-            console.log('✅ Email sent successfully to:', emailData.to);
-          } catch (error) {
-            console.error('❌ Failed to send email:', error);
-            // In real implementation: await updateDoc(doc.ref, { status: 'failed' });
-          }
-        }, 1000);
       });
-    });
 
-    return unsubscribe;
-  }, []);
+      return unsubscribe;
+    }
+  }, [userProfile]);
 
   const sendApplicationReceivedEmail = async (applicantEmail: string, jobTitle: string, applicantName: string) => {
     const emailData: Omit<EmailNotification, 'id'> = {
