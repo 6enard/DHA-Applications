@@ -39,7 +39,7 @@ const Register: React.FC<RegisterProps> = ({ onToggleMode, onClose }) => {
     setLoading(true);
 
     try {
-      await register(formData.email, formData.password, formData.fullName, formData.role);
+      await register(formData.email, formData.password, formData.fullName, formData.role as 'applicant' | 'hr' | 'admin');
       onClose();
     } catch (error: any) {
       setError('Failed to create account. Please try again.');

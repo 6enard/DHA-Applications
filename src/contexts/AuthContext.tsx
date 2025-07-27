@@ -13,7 +13,7 @@ interface UserProfile {
   uid: string;
   email: string;
   displayName?: string;
-  role?: 'applicant' | 'employer';
+  role: 'applicant' | 'hr' | 'admin';
   createdAt: Date;
 }
 
@@ -22,7 +22,7 @@ interface AuthContextType {
   userProfile: UserProfile | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, role: 'applicant' | 'employer') => Promise<void>;
+  register: (email: string, password: string, displayName: string, role: 'applicant' | 'hr' | 'admin') => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -46,10 +46,54 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   const login = async (email: string, password: string) => {
+    // Handle demo accounts
+    if (email === 'hr@dha.go.ke' && password === 'hr123456') {
+      // Create a mock user for demo
+      const mockUser = {
+        uid: 'demo-hr-user',
+        email: 'hr@dha.go.ke',
+        displayName: 'HR Manager'
+      } as User;
+      
+      const mockProfile: UserProfile = {
+        uid: 'demo-hr-user',
+        email: 'hr@dha.go.ke',
+        displayName: 'HR Manager',
+        role: 'admin',
+        createdAt: new Date()
+      };
+      
+      setCurrentUser(mockUser);
+      setUserProfile(mockProfile);
+      return;
+    }
+    
+    if (email === 'applicant@email.com' && password === 'applicant123') {
+      // Create a mock user for demo
+      const mockUser = {
+        uid: 'demo-applicant-user',
+        email: 'applicant@email.com',
+        displayName: 'John Doe'
+      } as User;
+      
+      const mockProfile: UserProfile = {
+        uid: 'demo-applicant-user',
+        email: 'applicant@email.com',
+        displayName: 'John Doe',
+        role: 'applicant',
+        createdAt: new Date()
+      };
+      
+      setCurrentUser(mockUser);
+      setUserProfile(mockProfile);
+      return;
+    }
+    
+    // For real accounts, use Firebase
     await signInWithEmailAndPassword(auth, email, password);
   };
 
-  const register = async (email: string, password: string, role: 'applicant' | 'employer') => {
+  const register = async (email: string, password: string, displayName: string, role: 'applicant' | 'hr' | 'admin') => {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
     
@@ -57,6 +101,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const userProfile: UserProfile = {
       uid: user.uid,
       email: user.email!,
+      displayName,
       role,
       createdAt: new Date()
     };
@@ -65,6 +110,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const logout = async () => {
+    // Handle demo accounts
+    if (currentUser?.uid === 'demo-hr-user' || currentUser?.uid === 'demo-applicant-user') {
+      setCurrentUser(null);
+      setUserProfile(null);
+      return;
+    }
+    
+    // For real accounts, use Firebase
     await signOut(auth);
   };
 
