@@ -5,9 +5,11 @@ import {
   createUserWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
-  updateProfile
+  updateProfile,
+  setPersistence,
+  browserLocalPersistence
 } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
 
 interface UserProfile {
@@ -41,6 +43,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Set up persistent authentication
+  useEffect(() => {
+    const setupPersistence = async () => {
+      try {
+        await setPersistence(auth, browserLocalPersistence);
+      } catch (error) {
+        console.error('Error setting up auth persistence:', error);
+      }
+    };
+    setupPersistence();
+  }, []);
 
   const register = async (email: string, password: string, displayName: string, role: string = 'applicant') => {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -117,21 +131,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (user) {
         try {
-          const userDoc = await getDoc(doc(db, 'users', user.uid));
-          if (userDoc.exists()) {
-            setUserProfile(userDoc.data() as UserProfile);
-          } else {
-            // Create a default profile if document doesn't exist
-            const defaultProfile: UserProfile = {
-              uid: user.uid,
-              email: user.email!,
-              displayName: user.displayName || 'User',
-              role: 'applicant',
-              createdAt: new Date()
-            };
-            await setDoc(doc(db, 'users', user.uid), defaultProfile);
-            setUserProfile(defaultProfile);
-          }
+          // Set up real-time listener for user profile
+          const userDocRef = doc(db, 'users', user.uid);
+          const unsubscribeProfile = onSnapshot(userDocRef, async (userDoc) => {
+            if (userDoc.exists()) {
+              const profileData = userDoc.data() as UserProfile;
+              setUserProfile({
+                ...profileData,
+                createdAt: profileData.createdAt?.toDate?.() || new Date(profileData.createdAt)
+              });
+            } else {
+              // Create a default profile if document doesn't exist
+              const defaultProfile: UserProfile = {
+                uid: user.uid,
+                email: user.email!,
+                displayName: user.displayName || 'User',
+                role: 'applicant',
+                createdAt: new Date()
+              };
+              await setDoc(userDocRef, defaultProfile);
+              setUserProfile(defaultProfile);
+            }
+          });
+
+          // Store the unsubscribe function to clean up later
+          return () => unsubscribeProfile();
         } catch (error) {
           console.error('Error fetching user profile:', error);
         }

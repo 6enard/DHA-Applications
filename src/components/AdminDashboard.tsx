@@ -25,7 +25,18 @@ import {
   Shield
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { collection, getDocs, doc, updateDoc, deleteDoc, query, where, orderBy } from 'firebase/firestore';
+import { 
+  collection, 
+  getDocs, 
+  doc, 
+  updateDoc, 
+  deleteDoc, 
+  query, 
+  where, 
+  orderBy, 
+  onSnapshot,
+  serverTimestamp
+} from 'firebase/firestore';
 import { db } from '../firebase/config';
 
 interface Application {
@@ -78,113 +89,90 @@ const AdminDashboard: React.FC = () => {
 
   // Load applications from Firebase
   useEffect(() => {
-    loadApplications();
+    loadApplicationsRealTime();
     loadJobs();
   }, []);
 
-  const loadApplications = async () => {
+  const loadApplicationsRealTime = () => {
     try {
       setLoading(true);
       setError('');
       
-      // For demo purposes, create mock data that simulates Firebase structure
-      const mockApplications: Application[] = [
-        {
-          id: '1',
-          applicantId: 'demo-applicant-user', // Links to the demo applicant user
-          applicantName: 'Demo Applicant',
-          applicantEmail: 'applicant@email.com',
-          applicantPhone: '+254 712 345 678',
-          jobId: 'job1',
-          jobTitle: 'Health Data Analyst',
-          department: 'Data & Analytics',
-          status: 'under-review',
-          stage: 'technical-review',
-          submittedAt: new Date('2024-01-15'),
-          lastUpdated: new Date('2024-01-18'),
-          coverLetter: 'I am excited to apply for the Health Data Analyst position. With my background in statistics and healthcare data analysis, I believe I can contribute significantly to Kenya\'s digital health transformation.',
-          score: 85,
-          notes: 'Strong technical background, good communication skills. Recommended for interview.',
-          reviewedBy: 'Sarah Johnson',
-          createdBy: 'demo-applicant-user'
-        },
-        {
-          id: '2',
-          applicantId: 'demo-applicant-user',
-          applicantName: 'Demo Applicant',
-          applicantEmail: 'applicant@email.com',
-          applicantPhone: '+254 723 456 789',
-          jobId: 'job2',
-          jobTitle: 'Digital Health Specialist',
-          department: 'Digital Health',
-          status: 'shortlisted',
-          stage: 'hr-review',
-          submittedAt: new Date('2024-01-12'),
-          lastUpdated: new Date('2024-01-20'),
-          coverLetter: 'As a passionate advocate for digital health solutions, I believe I would be an excellent fit for this role. My experience in implementing health technology systems aligns perfectly with DHA\'s mission.',
-          score: 92,
-          notes: 'Excellent candidate with relevant experience. Schedule interview ASAP.',
-          reviewedBy: 'Michael Brown',
-          interviewDate: new Date('2024-01-25'),
-          createdBy: 'demo-applicant-user'
-        },
-        {
-          id: '3',
-          applicantId: 'user-123', // Different user
-          applicantName: 'John Doe',
-          applicantEmail: 'john.doe@email.com',
-          applicantPhone: '+254 734 567 890',
-          jobId: 'job1',
-          jobTitle: 'Health Data Analyst',
-          department: 'Data & Analytics',
-          status: 'submitted',
-          stage: 'initial-review',
-          submittedAt: new Date('2024-01-20'),
-          lastUpdated: new Date('2024-01-20'),
-          coverLetter: 'I am writing to express my interest in the Health Data Analyst position. My academic background in statistics and practical experience with healthcare datasets make me a strong candidate.',
-          notes: 'Pending initial review.',
-          createdBy: 'user-123'
-        },
-        {
-          id: '4',
-          applicantId: 'user-456', // Another different user
-          applicantName: 'Mary Johnson',
-          applicantEmail: 'mary.johnson@email.com',
-          applicantPhone: '+254 745 678 901',
-          jobId: 'job3',
-          jobTitle: 'Health Systems Coordinator',
-          department: 'Health Systems',
-          status: 'rejected',
-          stage: 'completed',
-          submittedAt: new Date('2024-01-10'),
-          lastUpdated: new Date('2024-01-16'),
-          coverLetter: 'I am interested in the Health Systems Coordinator role and believe my experience in project management would be valuable.',
-          score: 65,
-          notes: 'Does not meet minimum requirements for the position.',
-          reviewedBy: 'Lisa Davis',
-          createdBy: 'user-456'
-        }
-      ];
-
-      setApplications(mockApplications);
+      // Set up real-time listener for all applications
+      const applicationsRef = collection(db, 'applications');
+      const q = query(applicationsRef, orderBy('submittedAt', 'desc'));
       
-      // In a real implementation, you would use:
-      // const applicationsRef = collection(db, 'applications');
-      // const q = query(applicationsRef, orderBy('submittedAt', 'desc'));
-      // const querySnapshot = await getDocs(q);
-      // const applicationsData = querySnapshot.docs.map(doc => ({
-      //   id: doc.id,
-      //   ...doc.data(),
-      //   submittedAt: doc.data().submittedAt?.toDate(),
-      //   lastUpdated: doc.data().lastUpdated?.toDate(),
-      //   interviewDate: doc.data().interviewDate?.toDate()
-      // })) as Application[];
-      // setApplications(applicationsData);
+      const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const applicationsData = querySnapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            ...data,
+            submittedAt: data.submittedAt?.toDate(),
+            lastUpdated: data.lastUpdated?.toDate(),
+            interviewDate: data.interviewDate?.toDate()
+          } as Application;
+        });
+        
+        // Add demo data for demonstration
+        const mockApplications: Application[] = [
+          {
+            id: 'demo-1',
+            applicantId: 'demo-applicant-user',
+            applicantName: 'Demo Applicant',
+            applicantEmail: 'applicant@email.com',
+            applicantPhone: '+254 712 345 678',
+            jobId: 'job1',
+            jobTitle: 'Health Data Analyst',
+            department: 'Data & Analytics',
+            status: 'under-review',
+            stage: 'technical-review',
+            submittedAt: new Date('2024-01-15'),
+            lastUpdated: new Date('2024-01-18'),
+            coverLetter: 'I am excited to apply for the Health Data Analyst position. With my background in statistics and healthcare data analysis, I believe I can contribute significantly to Kenya\'s digital health transformation.',
+            score: 85,
+            notes: 'Strong technical background, good communication skills. Recommended for interview.',
+            reviewedBy: 'Sarah Johnson',
+            createdBy: 'demo-applicant-user'
+          },
+          {
+            id: 'demo-2',
+            applicantId: 'demo-applicant-user',
+            applicantName: 'Demo Applicant',
+            applicantEmail: 'applicant@email.com',
+            applicantPhone: '+254 723 456 789',
+            jobId: 'job2',
+            jobTitle: 'Digital Health Specialist',
+            department: 'Digital Health',
+            status: 'shortlisted',
+            stage: 'hr-review',
+            submittedAt: new Date('2024-01-12'),
+            lastUpdated: new Date('2024-01-20'),
+            coverLetter: 'As a passionate advocate for digital health solutions, I believe I would be an excellent fit for this role. My experience in implementing health technology systems aligns perfectly with DHA\'s mission.',
+            score: 92,
+            notes: 'Excellent candidate with relevant experience. Schedule interview ASAP.',
+            reviewedBy: 'Michael Brown',
+            interviewDate: new Date('2024-01-25'),
+            createdBy: 'demo-applicant-user'
+          }
+        ];
+
+        // Combine real applications with demo data
+        const allApplications = [...applicationsData, ...mockApplications];
+        setApplications(allApplications);
+        setLoading(false);
+      }, (error) => {
+        console.error('Error loading applications:', error);
+        setError('Failed to load applications. Please try again.');
+        setLoading(false);
+      });
+
+      // Return cleanup function
+      return unsubscribe;
       
     } catch (error) {
       console.error('Error loading applications:', error);
       setError('Failed to load applications. Please try again.');
-    } finally {
       setLoading(false);
     }
   };
@@ -260,23 +248,28 @@ const AdminDashboard: React.FC = () => {
       // Update local state immediately for better UX
       setApplications(prev => prev.map(app => 
         app.id === applicationId 
-          ? { ...app, status: newStatus, lastUpdated: new Date(), reviewedBy: userProfile?.displayName }
+          ? { 
+              ...app, 
+              status: newStatus, 
+              lastUpdated: new Date(), 
+              reviewedBy: userProfile?.displayName || 'Admin'
+            }
           : app
       ));
 
-      // In a real implementation, update Firebase:
-      // const applicationRef = doc(db, 'applications', applicationId);
-      // await updateDoc(applicationRef, {
-      //   status: newStatus,
-      //   lastUpdated: new Date(),
-      //   reviewedBy: userProfile?.displayName || currentUser?.uid
-      // });
+      // Update Firebase (skip for demo applications)
+      if (!applicationId.startsWith('demo-')) {
+        const applicationRef = doc(db, 'applications', applicationId);
+        await updateDoc(applicationRef, {
+          status: newStatus,
+          lastUpdated: serverTimestamp(),
+          reviewedBy: userProfile?.displayName || currentUser?.uid
+        });
+      }
       
     } catch (error) {
       console.error('Error updating application status:', error);
       setError('Failed to update application status. Please try again.');
-      // Revert local state on error
-      loadApplications();
     }
   };
 
@@ -284,27 +277,33 @@ const AdminDashboard: React.FC = () => {
     try {
       setApplications(prev => prev.map(app => 
         app.id === applicationId 
-          ? { ...app, stage: newStage, lastUpdated: new Date(), reviewedBy: userProfile?.displayName }
+          ? { 
+              ...app, 
+              stage: newStage, 
+              lastUpdated: new Date(), 
+              reviewedBy: userProfile?.displayName || 'Admin'
+            }
           : app
       ));
 
-      // In a real implementation:
-      // const applicationRef = doc(db, 'applications', applicationId);
-      // await updateDoc(applicationRef, {
-      //   stage: newStage,
-      //   lastUpdated: new Date(),
-      //   reviewedBy: userProfile?.displayName || currentUser?.uid
-      // });
+      // Update Firebase (skip for demo applications)
+      if (!applicationId.startsWith('demo-')) {
+        const applicationRef = doc(db, 'applications', applicationId);
+        await updateDoc(applicationRef, {
+          stage: newStage,
+          lastUpdated: serverTimestamp(),
+          reviewedBy: userProfile?.displayName || currentUser?.uid
+        });
+      }
       
     } catch (error) {
       console.error('Error updating application stage:', error);
       setError('Failed to update application stage. Please try again.');
-      loadApplications();
     }
   };
 
   const handleDeleteApplication = async (applicationId: string) => {
-    if (!confirm('Are you sure you want to delete this application? This action cannot be undone.')) {
+    if (!window.confirm('Are you sure you want to delete this application? This action cannot be undone.')) {
       return;
     }
 
@@ -312,13 +311,14 @@ const AdminDashboard: React.FC = () => {
       // Update local state immediately
       setApplications(prev => prev.filter(app => app.id !== applicationId));
 
-      // In a real implementation:
-      // await deleteDoc(doc(db, 'applications', applicationId));
+      // Delete from Firebase (skip for demo applications)
+      if (!applicationId.startsWith('demo-')) {
+        await deleteDoc(doc(db, 'applications', applicationId));
+      }
       
     } catch (error) {
       console.error('Error deleting application:', error);
       setError('Failed to delete application. Please try again.');
-      loadApplications();
     }
   };
 
@@ -326,17 +326,24 @@ const AdminDashboard: React.FC = () => {
     try {
       setApplications(prev => prev.map(app => 
         app.id === applicationId 
-          ? { ...app, notes, lastUpdated: new Date(), reviewedBy: userProfile?.displayName }
+          ? { 
+              ...app, 
+              notes, 
+              lastUpdated: new Date(), 
+              reviewedBy: userProfile?.displayName || 'Admin'
+            }
           : app
       ));
 
-      // In a real implementation:
-      // const applicationRef = doc(db, 'applications', applicationId);
-      // await updateDoc(applicationRef, {
-      //   notes,
-      //   lastUpdated: new Date(),
-      //   reviewedBy: userProfile?.displayName || currentUser?.uid
-      // });
+      // Update Firebase (skip for demo applications)
+      if (!applicationId.startsWith('demo-')) {
+        const applicationRef = doc(db, 'applications', applicationId);
+        await updateDoc(applicationRef, {
+          notes,
+          lastUpdated: serverTimestamp(),
+          reviewedBy: userProfile?.displayName || currentUser?.uid
+        });
+      }
       
     } catch (error) {
       console.error('Error updating notes:', error);
@@ -348,17 +355,24 @@ const AdminDashboard: React.FC = () => {
     try {
       setApplications(prev => prev.map(app => 
         app.id === applicationId 
-          ? { ...app, score, lastUpdated: new Date(), reviewedBy: userProfile?.displayName }
+          ? { 
+              ...app, 
+              score, 
+              lastUpdated: new Date(), 
+              reviewedBy: userProfile?.displayName || 'Admin'
+            }
           : app
       ));
 
-      // In a real implementation:
-      // const applicationRef = doc(db, 'applications', applicationId);
-      // await updateDoc(applicationRef, {
-      //   score,
-      //   lastUpdated: new Date(),
-      //   reviewedBy: userProfile?.displayName || currentUser?.uid
-      // });
+      // Update Firebase (skip for demo applications)
+      if (!applicationId.startsWith('demo-')) {
+        const applicationRef = doc(db, 'applications', applicationId);
+        await updateDoc(applicationRef, {
+          score,
+          lastUpdated: serverTimestamp(),
+          reviewedBy: userProfile?.displayName || currentUser?.uid
+        });
+      }
       
     } catch (error) {
       console.error('Error updating score:', error);
