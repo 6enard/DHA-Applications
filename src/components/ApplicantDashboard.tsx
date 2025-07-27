@@ -225,7 +225,7 @@ const ApplicantDashboard: React.FC = () => {
         deadline: new Date('2024-02-25'),
         status: 'active',
         postedAt: new Date('2024-01-10')
-      }
+      },
       {
         id: 'job5',
         title: 'Public Health Officer',
